@@ -1,0 +1,200 @@
+'use server'
+
+import { signIn, signOut } from '@/lib/auth/config'
+import { publicPrisma } from '@/lib/db/public'
+import { getTenantPrisma } from '@/lib/db/tenant'
+import { toActionError } from '@/lib/errors'
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  resetPasswordSchema,
+} from '@/lib/validations/auth'
+import type { ActionResult } from '@/types'
+import { hash } from 'bcryptjs'
+import { nanoid } from 'nanoid'
+import { AuthError } from 'next-auth'
+import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+
+// ─── Connexion ────────────────────────────────────────────────────────────────
+export async function loginAction(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const raw = {
+    email: formData.get('email'),
+    password: formData.get('password'),
+    schemaName: formData.get('schemaName'),
+  }
+
+  const parsed = loginSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  try {
+    await signIn('credentials', {
+      ...parsed.data,
+      redirectTo: '/',
+    })
+    return { success: true, data: undefined }
+  } catch (error) {
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case 'CredentialsSignin':
+          return { success: false, error: 'Email ou mot de passe incorrect' }
+        default:
+          return { success: false, error: 'Erreur de connexion. Réessayez.' }
+      }
+    }
+    throw error
+  }
+}
+
+// ─── Connexion Google ─────────────────────────────────────────────────────────
+export async function loginWithGoogle() {
+  await signIn('google', { redirectTo: '/' })
+}
+
+// ─── Déconnexion ──────────────────────────────────────────────────────────────
+export async function logoutAction() {
+  await signOut({ redirectTo: '/login' })
+}
+
+// ─── Mot de passe oublié ──────────────────────────────────────────────────────
+export async function forgotPasswordAction(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const parsed = forgotPasswordSchema.safeParse({ email: formData.get('email') })
+  if (!parsed.success) {
+    return { success: false, error: 'Email invalide' }
+  }
+
+  try {
+    const { email } = parsed.data
+
+    // Chercher l'utilisateur dans tous les tenants actifs via le schéma public
+    const schools = await publicPrisma.school.findMany({
+      where: { status: { in: ['TRIAL', 'ACTIVE'] } },
+      select: { schemaName: true, name: true },
+    })
+
+    let found = false
+    for (const school of schools) {
+      try {
+        const db = getTenantPrisma(school.schemaName)
+        const user = await (db as any).user.findUnique({
+          where: { email },
+          select: { id: true, firstName: true },
+        })
+
+        if (user) {
+          found = true
+          const token = nanoid(32)
+          const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+
+          // Stocker le token de réinitialisation (table dédiée en production)
+          // Pour l'instant, on utilise Redis
+          const { Redis } = await import('@upstash/redis')
+          const redis = new Redis({
+            url: process.env.UPSTASH_REDIS_REST_URL!,
+            token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+          })
+          await redis.setex(
+            `reset:${token}`,
+            900,
+            JSON.stringify({ userId: user.id, schemaName: school.schemaName, email })
+          )
+
+          // Envoyer l'email de réinitialisation
+          const { Resend } = await import('resend')
+          const resend = new Resend(process.env.RESEND_API_KEY)
+          const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`
+
+          await resend.emails.send({
+            from: `${process.env.EMAIL_FROM_NAME} <${process.env.EMAIL_FROM}>`,
+            to: email,
+            subject: 'Réinitialisation de votre mot de passe ClasseLink',
+            html: `
+              <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">Réinitialisation du mot de passe</h2>
+                <p>Bonjour ${user.firstName},</p>
+                <p>Vous avez demandé la réinitialisation de votre mot de passe sur ClasseLink.</p>
+                <p>Cliquez sur le bouton ci-dessous dans les <strong>15 minutes</strong> :</p>
+                <a href="${resetUrl}"
+                   style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;">
+                  Réinitialiser mon mot de passe
+                </a>
+                <p style="color:#6b7280;font-size:12px;">
+                  Si vous n'avez pas fait cette demande, ignorez cet email.<br>
+                  Lien valable 15 minutes uniquement.
+                </p>
+              </div>
+            `,
+          })
+          break
+        }
+      } catch {
+        continue
+      }
+    }
+
+    // Toujours retourner succès (sécurité : ne pas révéler si l'email existe)
+    return {
+      success: true,
+      data: undefined,
+    }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
+// ─── Réinitialisation du mot de passe ────────────────────────────────────────
+export async function resetPasswordAction(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const parsed = resetPasswordSchema.safeParse({
+    token: formData.get('token'),
+    password: formData.get('password'),
+    confirmPassword: formData.get('confirmPassword'),
+  })
+
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  try {
+    const { token, password } = parsed.data
+
+    const { Redis } = await import('@upstash/redis')
+    const redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    })
+
+    const data = await redis.get<{ userId: string; schemaName: string; email: string }>(
+      `reset:${token}`
+    )
+
+    if (!data) {
+      return { success: false, error: 'Lien expiré ou invalide. Refaites la demande.' }
+    }
+
+    const db = getTenantPrisma(data.schemaName)
+    const passwordHash = await hash(password, 12)
+
+    await (db as any).user.update({
+      where: { id: data.userId },
+      data: { passwordHash, updatedAt: new Date() },
+    })
+
+    // Invalider le token immédiatement
+    await redis.del(`reset:${token}`)
+
+    return { success: true, data: undefined }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}

@@ -96,13 +96,13 @@ export function withPermission<TArgs extends unknown[], TReturn>(
     const session = await auth()
 
     if (!session?.user) throw new UnauthorizedError()
-    if (!can(session.user.role as Role, resource, action)) throw new ForbiddenError()
+    if (!can(session.user.role, resource, action)) throw new ForbiddenError()
 
     return handler(
       {
         userId: session.user.id!,
-        schemaName: session.user.schemaName as string,
-        role: session.user.role as Role,
+        schemaName: session.user.schemaName,
+        role: session.user.role,
       },
       ...args
     )
@@ -113,12 +113,12 @@ export function withPermission<TArgs extends unknown[], TReturn>(
 export async function requireAuth() {
   const session = await auth()
   if (!session?.user) throw new UnauthorizedError()
-  return session
+  return session as typeof session & { user: NonNullable<typeof session.user> }
 }
 
 // Récupérer la session ou lever une erreur + vérifier le rôle
 export async function requireRole(...roles: Role[]) {
   const session = await requireAuth()
-  if (!roles.includes(session.user.role as Role)) throw new ForbiddenError()
+  if (!roles.includes(session.user.role)) throw new ForbiddenError()
   return session
 }

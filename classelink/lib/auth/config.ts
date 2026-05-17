@@ -28,7 +28,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         const { email, password, schemaName } = parsed.data
 
         try {
-          const db = getTenantPrisma(schemaName)
+          const db = getTenantPrisma(schemaName) as any
           const user = await db.user.findUnique({
             where: { email },
             select: {
@@ -72,22 +72,22 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
-        token.role = (user as any).role
-        token.schemaName = (user as any).schemaName
-        token.firstName = (user as any).firstName
-        token.lastName = (user as any).lastName
+        token.id = user.id!
+        token.role = user.role
+        token.schemaName = user.schemaName
+        token.firstName = user.firstName
+        token.lastName = user.lastName
       }
       return token
     },
 
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id as string
-        session.user.role = token.role as Role
-        session.user.schemaName = token.schemaName as string
-        session.user.firstName = token.firstName as string
-        session.user.lastName = token.lastName as string
+        session.user.id = token.id
+        session.user.role = token.role
+        session.user.schemaName = token.schemaName
+        session.user.firstName = token.firstName
+        session.user.lastName = token.lastName
       }
       return session
     },
