@@ -12,7 +12,6 @@ export const SUPER_ADMIN_SCHEMA = '__super_admin__'
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
-  schemaName: z.string(),
 })
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
@@ -22,59 +21,17 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Mot de passe', type: 'password' },
-        schemaName: { label: 'Schema', type: 'text' },
       },
       async authorize(credentials) {
         const parsed = credentialsSchema.safeParse(credentials)
         if (!parsed.success) return null
 
-        const { email, password, schemaName } = parsed.data
+        const { email, password } = parsed.data
+        const db = publicPrisma as any
 
-        // ── Connexion Super Admin (schéma public) ──────────────────────────
-        if (schemaName === SUPER_ADMIN_SCHEMA || schemaName === '') {
-          try {
-            const db = publicPrisma as any
-            const admin = await db.superAdminUser.findUnique({
-              where: { email },
-              select: {
-                id: true,
-                email: true,
-                firstName: true,
-                lastName: true,
-                passwordHash: true,
-                isActive: true,
-              },
-            })
-
-            if (!admin || !admin.isActive) return null
-
-            const valid = await compare(password, admin.passwordHash)
-            if (!valid) return null
-
-            // Mettre à jour la date de dernière connexion
-            await db.superAdminUser.update({
-              where: { id: admin.id },
-              data: { lastLoginAt: new Date() },
-            })
-
-            return {
-              id: admin.id,
-              email: admin.email,
-              name: `${admin.firstName} ${admin.lastName}`,
-              role: 'SUPER_ADMIN' as Role,
-              schemaName: SUPER_ADMIN_SCHEMA,
-              firstName: admin.firstName,
-              lastName: admin.lastName,
-            }
-          } catch {
-            return null
-          }
-        }
-
-        // ── Connexion utilisateur école (schéma tenant) ────────────────────
+        // ── 1. Chercher dans Super Admin ───────────────────────────────────
         try {
-          const db = getTenantPrisma(schemaName) as any
-          const user = await db.user.findUnique({
+          const admin = await db.superAdminUser.findUnique({
             where: { email },
             select: {
               id: true,
@@ -82,30 +39,65 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
               firstName: true,
               lastName: true,
               passwordHash: true,
-              role: true,
               isActive: true,
-              avatarUrl: true,
             },
           })
 
-          if (!user || !user.passwordHash || !user.isActive) return null
-
-          const valid = await compare(password, user.passwordHash)
-          if (!valid) return null
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: `${user.firstName} ${user.lastName}`,
-            image: user.avatarUrl ?? undefined,
-            role: user.role as Role,
-            schemaName,
-            firstName: user.firstName,
-            lastName: user.lastName,
+          if (admin && admin.isActive) {
+            const valid = await compare(password, admin.passwordHash)
+            if (valid) {
+              await db.superAdminUser.update({
+                where: { id: admin.id },
+                data: { lastLoginAt: new Date() },
+              })
+              return {
+                id: admin.id,
+                email: admin.email,
+                name: `${admin.firstName} ${admin.lastName}`,
+                role: 'SUPER_ADMIN' as Role,
+                schemaName: SUPER_ADMIN_SCHEMA,
+                firstName: admin.firstName,
+                lastName: admin.lastName,
+              }
+            }
           }
-        } catch {
-          return null
-        }
+        } catch { /* pas un super admin, on continue */ }
+
+        // ── 2. Chercher dans tous les tenants actifs ───────────────────────
+        try {
+          const schools = await db.school.findMany({
+            where: { status: { in: ['TRIAL', 'ACTIVE'] } },
+            select: { schemaName: true },
+          })
+
+          for (const school of schools) {
+            try {
+              const tenantDb = getTenantPrisma(school.schemaName) as any
+              const rows: any[] = await tenantDb.$queryRaw`
+                SELECT id, email, first_name, last_name, password_hash, role, is_active, avatar_url
+                FROM users WHERE email = ${email} LIMIT 1
+              `
+              const user = rows[0]
+              if (!user || !user.is_active || !user.password_hash) continue
+
+              const valid = await compare(password, user.password_hash)
+              if (!valid) continue
+
+              return {
+                id: user.id,
+                email: user.email,
+                name: `${user.first_name} ${user.last_name}`,
+                image: user.avatar_url ?? undefined,
+                role: user.role as Role,
+                schemaName: school.schemaName,
+                firstName: user.first_name,
+                lastName: user.last_name,
+              }
+            } catch { continue }
+          }
+        } catch { /* aucun tenant trouvé */ }
+
+        return null
       },
     }),
     Google({

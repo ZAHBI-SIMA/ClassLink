@@ -11,6 +11,7 @@ import { toActionError } from '@/lib/errors'
 import type { ActionResult, PaginatedResult } from '@/types'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { Pool } from 'pg'
 
 const db = publicPrisma as any
 
@@ -187,33 +188,27 @@ export async function createSchool(
     // 2. Créer le schéma PostgreSQL
     await createTenantSchema(schemaName)
 
-    // 3. Appliquer le schéma tenant via le SQL
+    // 3. Appliquer le schéma tenant via pg directement (supporte plusieurs statements)
     const sqlPath = join(process.cwd(), 'prisma', 'tenant-schema.sql')
     const sql = readFileSync(sqlPath, 'utf-8')
-    const tenantDb = getTenantPrisma(schemaName) as any
 
-    // Exécuter le SQL par blocs (séparés par ---)
-    const statements = sql
-      .split(';')
-      .map((s: string) => s.trim())
-      .filter((s: string) => s.length > 0 && !s.startsWith('--'))
-
-    for (const stmt of statements) {
-      await tenantDb.$executeRawUnsafe(stmt + ';')
+    const pgPool = new Pool({ connectionString: process.env.DATABASE_URL })
+    const pgClient = await pgPool.connect()
+    try {
+      await pgClient.query(`SET search_path = "${schemaName}", public`)
+      await pgClient.query(sql)
+    } finally {
+      pgClient.release()
+      await pgPool.end()
     }
 
-    // 4. Créer l'administrateur de l'école
+    // 4. Créer l'administrateur de l'école (SQL brut — schéma tenant)
     const passwordHash = await hash(adminPassword, 12)
-    await tenantDb.user.create({
-      data: {
-        email: adminEmail,
-        passwordHash,
-        firstName: adminFirstName,
-        lastName: adminLastName,
-        role: 'ADMIN',
-        emailVerified: true,
-      },
-    })
+    const tenantDb = getTenantPrisma(schemaName) as any
+    await tenantDb.$executeRaw`
+      INSERT INTO users (email, password_hash, first_name, last_name, role, email_verified)
+      VALUES (${adminEmail}, ${passwordHash}, ${adminFirstName}, ${adminLastName}, 'ADMIN', TRUE)
+    `
 
     // 5. Log global
     await db.globalAuditLog.create({
@@ -314,4 +309,39 @@ export async function extendTrial(schoolId: string, days: number): Promise<void>
 export async function getPlans() {
   await requireRole('SUPER_ADMIN')
   return db.plan.findMany({ orderBy: { priceMonthly: 'asc' } })
+}
+
+// ─── Réparer le schéma tenant (si les tables n'ont pas été créées) ────────────
+export async function repairTenantSchema(schoolId: string): Promise<ActionResult> {
+  await requireRole('SUPER_ADMIN')
+
+  try {
+    const school = await db.school.findUnique({ where: { id: schoolId } })
+    if (!school) return { success: false, error: 'École introuvable.' }
+
+    const sqlPath = join(process.cwd(), 'prisma', 'tenant-schema.sql')
+    const sql = readFileSync(sqlPath, 'utf-8')
+    const { schemaName } = school
+
+    // S'assurer que le schéma PostgreSQL existe
+    await (publicPrisma as any).$executeRawUnsafe(
+      `CREATE SCHEMA IF NOT EXISTS "${schemaName}"`
+    )
+
+    // Appliquer le DDL complet en une passe
+    const pgPool = new Pool({ connectionString: process.env.DATABASE_URL })
+    const pgClient = await pgPool.connect()
+    try {
+      await pgClient.query(`SET search_path = "${schemaName}", public`)
+      await pgClient.query(sql)
+    } finally {
+      pgClient.release()
+      await pgPool.end()
+    }
+
+    revalidatePath(`/super-admin/schools/${schoolId}`)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
 }

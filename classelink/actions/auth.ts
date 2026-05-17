@@ -21,13 +21,11 @@ export async function loginAction(
   prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
-  const raw = {
+  const parsed = loginSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
-    schemaName: formData.get('schemaName'),
-  }
+  })
 
-  const parsed = loginSchema.safeParse(raw)
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message }
   }

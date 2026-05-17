@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getSchoolById, getPlans, toggleSchoolStatus, extendTrial } from '@/actions/super-admin'
+import { getSchoolById, getPlans, toggleSchoolStatus, extendTrial, repairTenantSchema } from '@/actions/super-admin'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
 import Link from 'next/link'
@@ -74,6 +74,16 @@ export default async function SchoolDetailPage({ params }: Props) {
                 </button>
               </form>
             )}
+
+            <form action={repairTenantSchema.bind(null, school.id)}>
+              <button
+                type="submit"
+                className="w-full px-4 py-2 rounded-lg text-sm font-medium bg-purple-100
+                           text-purple-700 hover:bg-purple-200 transition"
+              >
+                Réparer le schéma
+              </button>
+            </form>
           </div>
         </div>
       </div>
