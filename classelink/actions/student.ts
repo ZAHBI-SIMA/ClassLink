@@ -1,0 +1,139 @@
+'use server'
+
+import { getTenantPrisma } from '@/lib/db/tenant'
+import { requireRole } from '@/lib/auth/rbac'
+
+async function getStudentDb() {
+  const session = await requireRole('STUDENT')
+  const db = getTenantPrisma(session.user.schemaName) as any
+  return { db, session }
+}
+
+export async function getStudentProfile() {
+  const { db, session } = await getStudentDb()
+  const rows: any[] = await db.$queryRaw`
+    SELECT s.id, s.student_id AS student_number, s.date_of_birth, s.gender,
+           u.first_name, u.last_name, u.email, u.phone, u.avatar_url,
+           c.id AS class_id, c.name AS class_name,
+           l.name AS level_name,
+           ay.name AS year_name, ay.id AS year_id
+    FROM students s
+    JOIN users u ON u.id = s.user_id
+    LEFT JOIN enrollments e  ON e.student_id = s.id AND e.status = 'ACTIVE'
+    LEFT JOIN classes c      ON c.id = e.class_id
+    LEFT JOIN levels l       ON l.id = c.level_id
+    LEFT JOIN academic_years ay ON ay.is_current = TRUE
+    WHERE s.user_id = ${session.user.id}
+    LIMIT 1
+  `
+  return rows[0] ?? null
+}
+
+export async function getStudentTerms() {
+  const { db } = await getStudentDb()
+  return db.$queryRaw`
+    SELECT t.id, t.name, t.term_order, t.start_date, t.end_date
+    FROM terms t
+    JOIN academic_years ay ON ay.id = t.academic_year_id
+    WHERE ay.is_current = TRUE
+    ORDER BY t.term_order
+  ` as Promise<any[]>
+}
+
+export async function getStudentGrades(termId: string) {
+  const { db, session } = await getStudentDb()
+
+  const student: any[] = await db.$queryRaw`
+    SELECT s.id, c.level_id FROM students s
+    LEFT JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+    LEFT JOIN classes c ON c.id = e.class_id
+    WHERE s.user_id = ${session.user.id} LIMIT 1
+  `
+  if (!student[0]) return { subjects: [], rows: [] }
+
+  const { id: studentId, level_id: levelId } = student[0]
+
+  const subjects: any[] = await db.$queryRaw`
+    SELECT s.id, s.name, s.code, COALESCE(ls.coefficient, 1) AS coefficient
+    FROM subjects s
+    LEFT JOIN level_subjects ls ON ls.subject_id = s.id AND ls.level_id = ${levelId}
+    WHERE EXISTS (
+      SELECT 1 FROM grades g WHERE g.subject_id = s.id AND g.student_id = ${studentId} AND g.term_id = ${termId}
+    )
+    ORDER BY s.name
+  `
+
+  const grades: any[] = await db.$queryRaw`
+    SELECT g.id, g.subject_id, g.type, g.value, g.coefficient, g.comment, g.created_at
+    FROM grades g
+    WHERE g.student_id = ${studentId} AND g.term_id = ${termId}
+    ORDER BY g.created_at
+  `
+
+  const gradesBySubject: Record<string, any[]> = {}
+  for (const g of grades) {
+    if (!gradesBySubject[g.subject_id]) gradesBySubject[g.subject_id] = []
+    gradesBySubject[g.subject_id].push(g)
+  }
+
+  let generalWeightedSum = 0
+  let generalCoeffSum = 0
+
+  const rows = subjects.map(sub => {
+    const subGrades = gradesBySubject[sub.id] ?? []
+    const weightedSum = subGrades.reduce((s: number, g: any) => s + parseFloat(g.value) * parseFloat(g.coefficient), 0)
+    const coeffSum    = subGrades.reduce((s: number, g: any) => s + parseFloat(g.coefficient), 0)
+    const average     = coeffSum > 0 ? Math.round((weightedSum / coeffSum) * 100) / 100 : null
+
+    if (average !== null) {
+      generalWeightedSum += average * parseFloat(sub.coefficient)
+      generalCoeffSum    += parseFloat(sub.coefficient)
+    }
+
+    return { ...sub, grades: subGrades, average }
+  })
+
+  const generalAverage = generalCoeffSum > 0
+    ? Math.round((generalWeightedSum / generalCoeffSum) * 100) / 100
+    : null
+
+  return { rows, generalAverage }
+}
+
+export async function getStudentAttendanceSummary() {
+  const { db, session } = await getStudentDb()
+  return db.$queryRaw`
+    SELECT
+      t.id, t.name, t.term_order,
+      COUNT(a.id)::int                                          AS total,
+      COUNT(CASE WHEN a.status = 'PRESENT'  THEN 1 END)::int   AS present,
+      COUNT(CASE WHEN a.status = 'ABSENT'   THEN 1 END)::int   AS absent,
+      COUNT(CASE WHEN a.status = 'LATE'     THEN 1 END)::int   AS late,
+      COUNT(CASE WHEN a.status = 'EXCUSED'  THEN 1 END)::int   AS excused,
+      COUNT(CASE WHEN a.status = 'ABSENT'
+                  AND a.justified = FALSE THEN 1 END)::int     AS unjustified
+    FROM terms t
+    JOIN academic_years ay ON ay.id = t.academic_year_id AND ay.is_current = TRUE
+    LEFT JOIN attendances a
+      ON a.term_id = t.id
+      AND a.student_id = (
+        SELECT s.id FROM students s WHERE s.user_id = ${session.user.id} LIMIT 1
+      )
+    GROUP BY t.id, t.name, t.term_order
+    ORDER BY t.term_order
+  ` as Promise<any[]>
+}
+
+export async function getStudentPayments() {
+  const { db, session } = await getStudentDb()
+  return db.$queryRaw`
+    SELECT p.id, p.amount, p.status, p.paid_at, p.due_date,
+           ft.name AS fee_name
+    FROM payments p
+    JOIN fee_types ft ON ft.id = p.fee_type_id
+    WHERE p.student_id = (
+      SELECT s.id FROM students s WHERE s.user_id = ${session.user.id} LIMIT 1
+    )
+    ORDER BY p.created_at DESC
+  ` as Promise<any[]>
+}

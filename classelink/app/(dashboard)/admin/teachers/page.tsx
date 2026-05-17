@@ -1,7 +1,9 @@
-import { getTeachers, createTeacher } from '@/actions/admin'
+import { getTeachers } from '@/actions/admin'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import { getInitials } from '@/lib/utils'
+import { TeacherCreateForm } from './create-form'
+import Link from 'next/link'
 
 export const metadata = { title: 'Enseignants' }
 
@@ -18,82 +20,7 @@ export default async function TeachersPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Formulaire */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Ajouter un enseignant</h3>
-            <form action={createTeacher} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Prénom</label>
-                  <input
-                    name="firstName"
-                    required
-                    placeholder="Jean"
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
-                               focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
-                  <input
-                    name="lastName"
-                    required
-                    placeholder="Kouassi"
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
-                               focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="jean.kouassi@ecole.ci"
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
-                             focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone</label>
-                <input
-                  name="phone"
-                  type="tel"
-                  placeholder="+225 07 00 00 00 00"
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
-                             focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Spécialité</label>
-                <input
-                  name="specialty"
-                  placeholder="Mathématiques"
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
-                             focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">N° matricule</label>
-                <input
-                  name="employeeId"
-                  placeholder="EMP-001"
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
-                             focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <p className="text-xs text-gray-400">
-                Un mot de passe temporaire sera généré et envoyé à l&apos;enseignant.
-              </p>
-              <button
-                type="submit"
-                className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm
-                           font-medium rounded-lg transition"
-              >
-                Ajouter l&apos;enseignant
-              </button>
-            </form>
-          </div>
+          <TeacherCreateForm />
         </div>
 
         {/* Liste */}
@@ -118,6 +45,7 @@ export default async function TeachersPage() {
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 hidden md:table-cell">Spécialité</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 hidden lg:table-cell">Classes</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Statut</th>
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -149,6 +77,14 @@ export default async function TeachersPage() {
                           ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                           {t.is_active ? 'Actif' : 'Inactif'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/admin/teachers/${t.id}`}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Détails →
+                        </Link>
                       </td>
                     </tr>
                   ))}
