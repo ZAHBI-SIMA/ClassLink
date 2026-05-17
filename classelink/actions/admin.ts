@@ -284,7 +284,7 @@ export async function getTeacherById(id: string) {
 export async function resetTeacherPassword(
   prevState: ActionResult | null,
   formData: FormData
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   const { db } = await getDb()
   const userId = formData.get('userId') as string
   if (!userId) return { success: false, error: 'Utilisateur introuvable.' }
@@ -302,7 +302,7 @@ export async function resetTeacherPassword(
   }
 }
 
-export async function createTeacher(formData: FormData): Promise<ActionResult> {
+export async function createTeacher(_prev: ActionResult | null, formData: FormData): Promise<ActionResult<any>> {
   try {
     const { db } = await getDb()
     const firstName  = formData.get('firstName') as string
@@ -398,7 +398,7 @@ export async function getStudentById(id: string) {
 export async function resetStudentPassword(
   prevState: ActionResult | null,
   formData: FormData
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   const { db } = await getDb()
   const userId = formData.get('userId') as string
   if (!userId) return { success: false, error: 'Utilisateur introuvable.' }
@@ -441,7 +441,7 @@ export async function getParentById(id: string) {
 export async function resetParentPassword(
   prevState: ActionResult | null,
   formData: FormData
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   const { db } = await getDb()
   const userId = formData.get('userId') as string
   if (!userId) return { success: false, error: 'Utilisateur introuvable.' }
@@ -458,7 +458,7 @@ export async function resetParentPassword(
 export async function createStudent(
   prevState: ActionResult | null,
   formData: FormData
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   try {
     const { db } = await getDb()
     const firstName   = formData.get('firstName') as string
@@ -536,7 +536,7 @@ export async function getParents() {
 export async function createParent(
   prevState: ActionResult | null,
   formData: FormData
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   try {
     const { db } = await getDb()
     const firstName = formData.get('firstName') as string
@@ -874,6 +874,146 @@ export async function getPaymentStats() {
   return rows[0] ?? { total_count: 0, total_amount: 0, paid_amount: 0, pending_amount: 0, paid_count: 0, pending_count: 0 }
 }
 
+// ─── Bulletins ────────────────────────────────────────────────────────────────
+
+export async function getBulletin(studentId: string, termId: string) {
+  const { db } = await getDb()
+
+  const [profileRows, termRows, schoolRows] = await Promise.all([
+    db.$queryRaw`
+      SELECT s.id, s.student_id AS student_number, s.date_of_birth, s.gender,
+             u.first_name, u.last_name, u.email,
+             c.id AS class_id, c.name AS class_name, l.name AS level_name,
+             ay.name AS year_name
+      FROM students s
+      JOIN users u ON u.id = s.user_id
+      LEFT JOIN enrollments e  ON e.student_id = s.id AND e.status = 'ACTIVE'
+      LEFT JOIN classes c      ON c.id = e.class_id
+      LEFT JOIN levels l       ON l.id = c.level_id
+      LEFT JOIN academic_years ay ON ay.is_current = TRUE
+      WHERE s.id = ${studentId} LIMIT 1
+    ` as Promise<any[]>,
+
+    db.$queryRaw`
+      SELECT t.id, t.name, t.term_order, t.start_date, t.end_date
+      FROM terms t WHERE t.id = ${termId} LIMIT 1
+    ` as Promise<any[]>,
+
+    db.$queryRaw`
+      SELECT school_name, address, phone, email, logo_url
+      FROM school_settings LIMIT 1
+    ` as Promise<any[]>,
+  ])
+
+  const profile = profileRows[0]
+  const term    = termRows[0]
+  if (!profile || !term) return null
+
+  // Matières avec coefficients pour ce niveau
+  const subjects: any[] = await db.$queryRaw`
+    SELECT s.id, s.name, s.code, COALESCE(ls.coefficient, 1)::float AS coefficient
+    FROM subjects s
+    LEFT JOIN level_subjects ls ON ls.subject_id = s.id AND ls.level_id = (
+      SELECT c.level_id FROM classes c WHERE c.id = ${profile.class_id} LIMIT 1
+    )
+    WHERE EXISTS (
+      SELECT 1 FROM grades g
+      WHERE g.subject_id = s.id AND g.student_id = ${studentId} AND g.term_id = ${termId}
+    )
+    ORDER BY s.name
+  `
+
+  // Notes de l'élève pour ce trimestre
+  const grades: any[] = await db.$queryRaw`
+    SELECT g.subject_id, g.type, g.value::float, g.coefficient::float
+    FROM grades g
+    WHERE g.student_id = ${studentId} AND g.term_id = ${termId}
+    ORDER BY g.created_at
+  `
+
+  // Présences pour ce trimestre
+  const attendanceRows: any[] = await db.$queryRaw`
+    SELECT
+      COUNT(a.id)::int                                             AS total,
+      COUNT(CASE WHEN a.status = 'PRESENT' THEN 1 END)::int        AS present,
+      COUNT(CASE WHEN a.status = 'ABSENT'  THEN 1 END)::int        AS absent,
+      COUNT(CASE WHEN a.status = 'LATE'    THEN 1 END)::int        AS late,
+      COUNT(CASE WHEN a.status = 'ABSENT' AND a.justified = FALSE THEN 1 END)::int AS unjustified
+    FROM attendances a
+    WHERE a.student_id = ${studentId} AND a.term_id = ${termId}
+  `
+
+  // Rang dans la classe pour ce trimestre
+  const rankRows: any[] = await db.$queryRaw`
+    SELECT student_id,
+           RANK() OVER (ORDER BY general_avg DESC NULLS LAST)::int AS rank,
+           COUNT(*) OVER ()::int AS total_students
+    FROM (
+      SELECT g.student_id,
+        SUM(
+          (SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0))
+          * COALESCE(ls.coefficient, 1)
+        ) / NULLIF(SUM(COALESCE(ls.coefficient, 1)), 0) AS general_avg
+      FROM grades g
+      JOIN enrollments e ON e.student_id = g.student_id AND e.status = 'ACTIVE'
+      LEFT JOIN level_subjects ls ON ls.subject_id = g.subject_id AND ls.level_id = (
+        SELECT c.level_id FROM classes c WHERE c.id = ${profile.class_id} LIMIT 1
+      )
+      WHERE g.term_id = ${termId} AND e.class_id = ${profile.class_id}
+      GROUP BY g.student_id, g.subject_id, ls.coefficient
+    ) sub
+    WHERE student_id = ${studentId}
+    LIMIT 1
+  `
+
+  // Calcul des moyennes par matière en JS
+  const gradesBySubject: Record<string, any[]> = {}
+  for (const g of grades) {
+    if (!gradesBySubject[g.subject_id]) gradesBySubject[g.subject_id] = []
+    gradesBySubject[g.subject_id].push(g)
+  }
+
+  let generalWeightedSum = 0
+  let generalCoeffSum = 0
+
+  const subjectRows = subjects.map((sub: any) => {
+    const subGrades = gradesBySubject[sub.id] ?? []
+    const ws = subGrades.reduce((s: number, g: any) => s + g.value * g.coefficient, 0)
+    const cs = subGrades.reduce((s: number, g: any) => s + g.coefficient, 0)
+    const average = cs > 0 ? Math.round((ws / cs) * 100) / 100 : null
+    if (average !== null) {
+      generalWeightedSum += average * sub.coefficient
+      generalCoeffSum    += sub.coefficient
+    }
+    return { ...sub, grades: subGrades, average }
+  })
+
+  const generalAverage = generalCoeffSum > 0
+    ? Math.round((generalWeightedSum / generalCoeffSum) * 100) / 100
+    : null
+
+  const appreciation = (avg: number | null) => {
+    if (avg === null) return ''
+    if (avg >= 16) return 'Très bien'
+    if (avg >= 14) return 'Bien'
+    if (avg >= 12) return 'Assez bien'
+    if (avg >= 10) return 'Passable'
+    return 'Insuffisant'
+  }
+
+  return {
+    school:      schoolRows[0] ?? {},
+    profile,
+    term,
+    subjectRows,
+    generalAverage,
+    appreciation: appreciation(generalAverage),
+    attendance:   attendanceRows[0] ?? { total: 0, present: 0, absent: 0, late: 0, unjustified: 0 },
+    rank:         rankRows[0]?.rank         ?? null,
+    totalStudents: rankRows[0]?.total_students ?? null,
+  }
+}
+
 export async function getStudentsForPayment() {
   const { db } = await getDb()
   return db.$queryRaw`
@@ -884,5 +1024,210 @@ export async function getStudentsForPayment() {
     LEFT JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
     LEFT JOIN classes c ON c.id = e.class_id
     ORDER BY u.last_name, u.first_name
+  ` as Promise<any[]>
+}
+
+// ─── Emploi du temps ──────────────────────────────────────────────────────────
+
+export async function getSchedule(classId: string) {
+  const { db } = await getDb()
+  return db.$queryRaw`
+    SELECT sc.id, sc.day_of_week, sc.start_time, sc.end_time, sc.room,
+           s.name  AS subject_name, s.code AS subject_code,
+           u.first_name AS teacher_first, u.last_name AS teacher_last,
+           tsc.id AS tsc_id
+    FROM schedules sc
+    JOIN teacher_subject_classes tsc ON tsc.id = sc.teacher_subject_class_id
+    JOIN subjects s   ON s.id  = tsc.subject_id
+    JOIN teachers t   ON t.id  = tsc.teacher_id
+    JOIN users u      ON u.id  = t.user_id
+    WHERE sc.class_id = ${classId}
+    ORDER BY sc.day_of_week, sc.start_time
+  ` as Promise<any[]>
+}
+
+export async function getTscForClass(classId: string) {
+  const { db } = await getDb()
+  return db.$queryRaw`
+    SELECT tsc.id,
+           s.name  AS subject_name,
+           u.first_name AS teacher_first, u.last_name AS teacher_last
+    FROM teacher_subject_classes tsc
+    JOIN subjects s ON s.id = tsc.subject_id
+    JOIN teachers t ON t.id = tsc.teacher_id
+    JOIN users u    ON u.id = t.user_id
+    WHERE tsc.class_id = ${classId}
+    ORDER BY s.name
+  ` as Promise<any[]>
+}
+
+export async function createScheduleSlot(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const { db } = await getDb()
+    const classId   = formData.get('class_id')   as string
+    const tscId     = formData.get('tsc_id')      as string
+    const day       = parseInt(formData.get('day_of_week') as string)
+    const startTime = formData.get('start_time')  as string
+    const endTime   = formData.get('end_time')    as string
+    const room      = (formData.get('room') as string) || null
+
+    if (!classId || !tscId || isNaN(day) || !startTime || !endTime) {
+      return { success: false, error: 'Tous les champs obligatoires sont requis.' }
+    }
+
+    await db.$executeRaw`
+      INSERT INTO schedules (class_id, teacher_subject_class_id, day_of_week, start_time, end_time, room)
+      VALUES (${classId}, ${tscId}, ${day}, ${startTime}, ${endTime}, ${room})
+    `
+    revalidatePath('/admin/schedule')
+    return { success: true, data: undefined }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+export async function deleteScheduleSlot(slotId: string): Promise<ActionResult> {
+  try {
+    const { db } = await getDb()
+    await db.$executeRaw`DELETE FROM schedules WHERE id = ${slotId}`
+    revalidatePath('/admin/schedule')
+    return { success: true, data: undefined }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+// ─── Sanctions ────────────────────────────────────────────────────────────────
+
+export async function getStudentsForSanction() {
+  const { db } = await getDb()
+  return db.$queryRaw`
+    SELECT s.id, u.first_name, u.last_name, c.name AS class_name
+    FROM students s
+    JOIN users u ON u.id = s.user_id
+    LEFT JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+    LEFT JOIN classes c ON c.id = e.class_id
+    ORDER BY u.last_name, u.first_name
+  ` as Promise<any[]>
+}
+
+export async function getSanctions(search?: string) {
+  const { db } = await getDb()
+  if (search && search.trim() !== '') {
+    return db.$queryRaw`
+      SELECT sa.id, sa.type, sa.reason, sa.description, sa.date, sa.duration, sa.notified,
+             u.first_name, u.last_name, c.name AS class_name,
+             iu.first_name AS issued_first, iu.last_name AS issued_last
+      FROM sanctions sa
+      JOIN students s ON s.id = sa.student_id
+      JOIN users u ON u.id = s.user_id
+      JOIN users iu ON iu.id = sa.issued_by
+      LEFT JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+      LEFT JOIN classes c ON c.id = e.class_id
+      WHERE u.first_name ILIKE ${'%' + search + '%'}
+         OR u.last_name  ILIKE ${'%' + search + '%'}
+      ORDER BY sa.date DESC
+    ` as Promise<any[]>
+  }
+  return db.$queryRaw`
+    SELECT sa.id, sa.type, sa.reason, sa.description, sa.date, sa.duration, sa.notified,
+           u.first_name, u.last_name, c.name AS class_name,
+           iu.first_name AS issued_first, iu.last_name AS issued_last
+    FROM sanctions sa
+    JOIN students s ON s.id = sa.student_id
+    JOIN users u ON u.id = s.user_id
+    JOIN users iu ON iu.id = sa.issued_by
+    LEFT JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+    LEFT JOIN classes c ON c.id = e.class_id
+    ORDER BY sa.date DESC
+  ` as Promise<any[]>
+}
+
+export async function createSanction(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const session = await requireRole('ADMIN', 'CENSOR')
+    const db = getTenantPrisma(session.user.schemaName) as any
+
+    const studentId   = formData.get('student_id') as string
+    const type        = formData.get('type') as string
+    const reason      = formData.get('reason') as string
+    const description = (formData.get('description') as string) || null
+    const date        = formData.get('date') as string
+    const durationRaw = formData.get('duration') as string
+    const duration    = durationRaw ? parseInt(durationRaw) : null
+
+    if (!studentId || !type || !reason || !date) {
+      return { success: false, error: 'Élève, type, raison et date sont requis.' }
+    }
+
+    await db.$executeRaw`
+      INSERT INTO sanctions (student_id, type, reason, description, date, duration, issued_by)
+      VALUES (${studentId}, ${type}, ${reason}, ${description}, ${toDate(date)}, ${duration}, ${session.user.id})
+    `
+    revalidatePath('/admin/sanctions')
+    return { success: true, data: undefined }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur' }
+  }
+}
+
+export async function deleteSanction(id: string): Promise<ActionResult> {
+  try {
+    const session = await requireRole('ADMIN', 'CENSOR')
+    const db = getTenantPrisma(session.user.schemaName) as any
+    await db.$executeRaw`DELETE FROM sanctions WHERE id = ${id}`
+    revalidatePath('/admin/sanctions')
+    return { success: true, data: undefined }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur' }
+  }
+}
+
+// ─── Reçu paiement ────────────────────────────────────────────────────────────
+
+export async function getPaymentReceipt(paymentId: string) {
+  const { db } = await getDb()
+  const rows: any[] = await db.$queryRaw`
+    SELECT p.id, p.amount, p.status, p.paid_at, p.due_date, p.receipt,
+           ft.name AS fee_name, ft.amount AS fee_amount,
+           s.student_id AS student_number,
+           u.first_name, u.last_name,
+           c.name AS class_name,
+           ss.school_name, ss.address AS school_address, ss.phone AS school_phone,
+           ss.email AS school_email, ss.director_name
+    FROM payments p
+    JOIN fee_types ft ON ft.id = p.fee_type_id
+    JOIN students s ON s.id = p.student_id
+    JOIN users u ON u.id = s.user_id
+    LEFT JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+    LEFT JOIN classes c ON c.id = e.class_id
+    LEFT JOIN school_settings ss ON TRUE
+    WHERE p.id = ${paymentId}
+    LIMIT 1
+  `
+  return rows[0] ?? null
+}
+
+// ─── Export CSV paiements ─────────────────────────────────────────────────────
+
+export async function getPaymentsForExport() {
+  const { db } = await getDb()
+  return db.$queryRaw`
+    SELECT s.student_id AS student_number, u.last_name, u.first_name,
+           c.name AS class_name, ft.name AS fee_name,
+           p.amount, p.status, p.due_date, p.paid_at
+    FROM payments p
+    JOIN fee_types ft ON ft.id = p.fee_type_id
+    JOIN students s ON s.id = p.student_id
+    JOIN users u ON u.id = s.user_id
+    LEFT JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+    LEFT JOIN classes c ON c.id = e.class_id
+    ORDER BY u.last_name, u.first_name, p.created_at DESC
   ` as Promise<any[]>
 }

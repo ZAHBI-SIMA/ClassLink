@@ -19,7 +19,7 @@ export default async function SubjectsPage() {
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Niveaux</h3>
           <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
-            <form action={createLevel} className="flex gap-2">
+            <form action={createLevel as any} className="flex gap-2">
               <input
                 name="name"
                 required
@@ -74,7 +74,7 @@ export default async function SubjectsPage() {
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Matières</h3>
           <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
-            <form action={createSubject} className="flex gap-2">
+            <form action={createSubject as any} className="flex gap-2">
               <input
                 name="name"
                 required

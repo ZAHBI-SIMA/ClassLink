@@ -39,7 +39,7 @@ export interface SessionUser {
 
 // ─── Réponse générique des Server Actions ────────────────────────────────────
 export type ActionResult<T = void> =
-  | { success: true; data: T }
+  | { success: true; data?: T }
   | { success: false; error: string; code?: string }
 
 // ─── Pagination ───────────────────────────────────────────────────────────────

@@ -137,3 +137,24 @@ export async function getStudentPayments() {
     ORDER BY p.created_at DESC
   ` as Promise<any[]>
 }
+
+export async function getStudentSchedule() {
+  const { db, session } = await getStudentDb()
+  return db.$queryRaw`
+    SELECT sc.id, sc.day_of_week, sc.start_time, sc.end_time, sc.room,
+           s.name  AS subject_name, s.code AS subject_code,
+           u.first_name AS teacher_first, u.last_name AS teacher_last
+    FROM schedules sc
+    JOIN teacher_subject_classes tsc ON tsc.id = sc.teacher_subject_class_id
+    JOIN subjects s ON s.id = tsc.subject_id
+    JOIN teachers t ON t.id = tsc.teacher_id
+    JOIN users u    ON u.id = t.user_id
+    WHERE sc.class_id = (
+      SELECT e.class_id FROM enrollments e
+      JOIN students st ON st.id = e.student_id
+      WHERE st.user_id = ${session.user.id} AND e.status = 'ACTIVE'
+      LIMIT 1
+    )
+    ORDER BY sc.day_of_week, sc.start_time
+  ` as Promise<any[]>
+}

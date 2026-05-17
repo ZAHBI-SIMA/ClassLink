@@ -2,6 +2,8 @@
 
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { requireRole } from '@/lib/auth/rbac'
+import { revalidatePath } from 'next/cache'
+import type { ActionResult } from '@/types'
 
 async function getParentDb() {
   const session = await requireRole('PARENT')
@@ -122,5 +124,70 @@ export async function getChildDetails(studentId: string) {
     terms: terms.map((t: any) => ({ ...t, average: avgByTerm[t.id] ?? null })),
     payments,
     attendance,
+  }
+}
+
+export async function getChildAbsencesForJustification(studentId: string) {
+  const { db, session } = await getParentDb()
+
+  // Vérifier que l'élève appartient au parent
+  const check: any[] = await db.$queryRaw`
+    SELECT ps.id FROM parent_students ps
+    JOIN parents p ON p.id = ps.parent_id
+    WHERE p.user_id = ${session.user.id} AND ps.student_id = ${studentId}
+    LIMIT 1
+  `
+  if (!check[0]) return []
+
+  return db.$queryRaw`
+    SELECT a.id, a.date, a.justification
+    FROM attendances a
+    WHERE a.student_id = ${studentId}
+      AND a.status = 'ABSENT'
+      AND a.justified = FALSE
+    ORDER BY a.date DESC
+  ` as Promise<any[]>
+}
+
+export async function submitJustification(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const { db, session } = await getParentDb()
+
+    const attendanceId  = formData.get('attendance_id') as string
+    const justification = formData.get('justification') as string
+
+    if (!attendanceId || !justification) {
+      return { success: false, error: 'Identifiant de présence et justification requis.' }
+    }
+
+    // Récupérer l'attendance pour vérifier la parenté
+    const attendance: any[] = await db.$queryRaw`
+      SELECT a.student_id FROM attendances a WHERE a.id = ${attendanceId} LIMIT 1
+    `
+    if (!attendance[0]) return { success: false, error: 'Absence introuvable.' }
+
+    const studentId = attendance[0].student_id
+
+    // Vérifier que l'élève appartient au parent
+    const check: any[] = await db.$queryRaw`
+      SELECT ps.id FROM parent_students ps
+      JOIN parents p ON p.id = ps.parent_id
+      WHERE p.user_id = ${session.user.id} AND ps.student_id = ${studentId}
+      LIMIT 1
+    `
+    if (!check[0]) return { success: false, error: 'Accès non autorisé.' }
+
+    await db.$executeRaw`
+      UPDATE attendances
+      SET justified = TRUE, justification = ${justification}
+      WHERE id = ${attendanceId}
+    `
+    revalidatePath('/parent/absences')
+    return { success: true, data: undefined }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur' }
   }
 }

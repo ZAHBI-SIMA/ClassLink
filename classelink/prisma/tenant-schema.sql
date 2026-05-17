@@ -333,6 +333,21 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC);
 
+-- ─── Sanctions ────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS sanctions (
+  id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  student_id  TEXT NOT NULL REFERENCES students(id),
+  type        TEXT NOT NULL CHECK (type IN ('AVERTISSEMENT','BLAME','EXCLUSION_TEMP','RENVOI','AUTRE')),
+  reason      TEXT NOT NULL,
+  description TEXT,
+  date        DATE NOT NULL,
+  duration    INT,
+  issued_by   TEXT NOT NULL REFERENCES users(id),
+  notified    BOOLEAN DEFAULT FALSE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sanctions_student ON sanctions(student_id);
+
 -- ─── Paramètres de l'école ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS school_settings (
   id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,

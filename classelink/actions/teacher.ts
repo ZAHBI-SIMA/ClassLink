@@ -290,3 +290,20 @@ export async function saveAttendance(
     return { success: false, error: e.message }
   }
 }
+
+
+export async function getTeacherSchedule() {
+  const { db, session } = await getTeacherDb()
+  return db.$queryRaw`
+    SELECT sc.id, sc.day_of_week, sc.start_time, sc.end_time, sc.room,
+           s.name  AS subject_name, s.code AS subject_code,
+           c.name  AS class_name
+    FROM schedules sc
+    JOIN teacher_subject_classes tsc ON tsc.id = sc.teacher_subject_class_id
+    JOIN subjects s ON s.id = tsc.subject_id
+    JOIN classes  c ON c.id = tsc.class_id
+    JOIN teachers t ON t.id = tsc.teacher_id
+    WHERE t.user_id = ${session.user.id}
+    ORDER BY sc.day_of_week, sc.start_time
+  ` as Promise<any[]>
+}

@@ -17,11 +17,24 @@ export default async function StudentDetailPage({ params }: Props) {
 
   return (
     <div className="max-w-2xl space-y-5">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-gray-500">
-        <Link href="/admin/students" className="hover:text-blue-600">Élèves</Link>
-        <span>›</span>
-        <span className="text-gray-900 font-medium">{student.first_name} {student.last_name}</span>
+      {/* Breadcrumb + actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Link href="/admin/students" className="hover:text-blue-600">Élèves</Link>
+          <span>›</span>
+          <span className="text-gray-900 font-medium">{student.first_name} {student.last_name}</span>
+        </div>
+        <Link
+          href={`/admin/bulletin/${id}`}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700
+                     text-white text-xs font-medium rounded-lg transition"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Bulletin
+        </Link>
       </div>
 
       {/* Profil */}

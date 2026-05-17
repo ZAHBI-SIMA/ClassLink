@@ -20,7 +20,7 @@ export default async function AcademicYearsPage() {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">Nouvelle année scolaire</h3>
-            <form action={createAcademicYear} className="space-y-4">
+            <form action={createAcademicYear as any} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Nom (ex : 2024-2025)

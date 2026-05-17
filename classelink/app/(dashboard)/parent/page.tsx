@@ -1,8 +1,12 @@
 import { getParentChildren } from '@/actions/parent'
+import { getAnnouncements } from '@/actions/announcements'
 import Link from 'next/link'
 
 export default async function ParentDashboardPage() {
-  const children = await getParentChildren()
+  const [children, announcements] = await Promise.all([
+    getParentChildren(),
+    getAnnouncements(),
+  ])
 
   return (
     <div className="space-y-6">
@@ -56,6 +60,37 @@ export default async function ParentDashboardPage() {
               </div>
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* Annonces récentes */}
+      {announcements.slice(0, 3).length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-900">Annonces récentes</h2>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {announcements.slice(0, 3).map((a: any) => (
+              <div key={a.id} className="px-5 py-4">
+                <div className="flex items-start gap-2">
+                  {a.is_pinned && (
+                    <span className="mt-0.5 inline-flex text-amber-500 flex-shrink-0">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                    </span>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">{a.title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{a.content}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(a.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

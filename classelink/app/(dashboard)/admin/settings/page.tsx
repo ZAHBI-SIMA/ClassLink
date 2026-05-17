@@ -13,7 +13,7 @@ export default async function SettingsPage() {
         description="Configurez les informations générales de votre école."
       />
 
-      <form action={saveSchoolSettings} className="space-y-6">
+      <form action={saveSchoolSettings as any} className="space-y-6">
         {/* Informations générales */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h3 className="text-sm font-semibold text-gray-900 mb-5">Informations générales</h3>
