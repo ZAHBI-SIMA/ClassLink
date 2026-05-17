@@ -101,6 +101,7 @@ export default async function StudentsPage({ searchParams }: Props) {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 hidden md:table-cell">N° élève</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 hidden lg:table-cell">Classe</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Statut</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -136,6 +137,12 @@ export default async function StudentsPage({ searchParams }: Props) {
                       ${s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                       {s.is_active ? 'Actif' : 'Inactif'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link href={`/admin/students/${s.id}`}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                      Détails →
+                    </Link>
                   </td>
                 </tr>
               ))}

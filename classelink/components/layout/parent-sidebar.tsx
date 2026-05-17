@@ -23,7 +23,7 @@ export function ParentSidebar({ parentName, schoolName }: { parentName: string; 
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         {NAV.map(item => {
-          const active = pathname === item.href || (item.href !== '/parent' && pathname.startsWith(item.href))
+          const active = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link key={item.href} href={item.href}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition ${active ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>

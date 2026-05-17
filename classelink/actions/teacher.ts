@@ -5,6 +5,12 @@ import { getTenantPrisma } from '@/lib/db/tenant'
 import { requireRole } from '@/lib/auth/rbac'
 import type { ActionResult } from '@/types'
 
+function toDate(s: string | null | undefined): Date | null {
+  if (!s) return null
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
 async function getTeacherDb() {
   const session = await requireRole('TEACHER', 'ADMIN', 'CENSOR')
   const db = getTenantPrisma(session.user.schemaName) as any
@@ -233,7 +239,7 @@ export async function getClassAttendance(classId: string, date: string) {
     JOIN users u ON u.id = s.user_id
     LEFT JOIN attendances a
       ON a.student_id = s.id
-      AND a.date = ${date}::date
+      AND a.date = ${toDate(date)}
       AND a.schedule_id IS NULL
     WHERE e.class_id = ${classId} AND e.status = 'ACTIVE'
     ORDER BY u.last_name, u.first_name
@@ -254,7 +260,7 @@ export async function saveAttendance(
     SELECT t.id FROM terms t
     JOIN academic_years ay ON ay.id = t.academic_year_id
     WHERE ay.is_current = TRUE
-      AND ${date}::date BETWEEN t.start_date AND t.end_date
+      AND ${toDate(date)} BETWEEN t.start_date AND t.end_date
     LIMIT 1
   `
   if (!terms[0]) return { success: false, error: 'Aucun trimestre actif pour cette date.' }
@@ -269,13 +275,13 @@ export async function saveAttendance(
 
       await db.$executeRaw`
         DELETE FROM attendances
-        WHERE student_id = ${sid} AND date = ${date}::date AND schedule_id IS NULL
+        WHERE student_id = ${sid} AND date = ${toDate(date)} AND schedule_id IS NULL
       `
       await db.$executeRaw`
         INSERT INTO attendances
           (student_id, term_id, date, status, justified, justification, recorded_by)
         VALUES
-          (${sid}, ${termId}, ${date}::date, ${status}, ${justified}, ${justification}, ${session.user.id})
+          (${sid}, ${termId}, ${toDate(date)}, ${status}, ${justified}, ${justification}, ${session.user.id})
       `
     }
     revalidatePath('/teacher/attendance')

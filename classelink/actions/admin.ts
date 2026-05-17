@@ -9,6 +9,21 @@ import type { ActionResult } from '@/types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function toDate(s: string | null | undefined): Date | null {
+  if (!s) return null
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
+function dbError(e: any): string {
+  if (e?.code === '23505' || e?.message?.includes('23505')) {
+    const detail: string = e?.meta?.details ?? e?.message ?? ''
+    if (detail.includes('email')) return 'Cette adresse email est déjà utilisée.'
+    return 'Un enregistrement avec ces informations existe déjà.'
+  }
+  return e?.message ?? 'Une erreur est survenue.'
+}
+
 async function getDb() {
   const session = await requireRole('ADMIN', 'CENSOR', 'ACCOUNTANT')
   return { db: getTenantPrisma(session.user.schemaName) as any, session }
@@ -83,7 +98,7 @@ export async function createAcademicYear(formData: FormData): Promise<ActionResu
 
     await db.$executeRaw`
       INSERT INTO academic_years (name, start_date, end_date, is_current)
-      VALUES (${name}, ${startDate}::date, ${endDate}::date, ${isCurrent})
+      VALUES (${name}, ${toDate(startDate)}, ${toDate(endDate)}, ${isCurrent})
     `
 
     // Créer les 3 trimestres automatiquement
@@ -101,7 +116,7 @@ export async function createAcademicYear(formData: FormData): Promise<ActionResu
       for (const t of terms) {
         await db.$executeRaw`
           INSERT INTO terms (academic_year_id, name, term_order, start_date, end_date)
-          VALUES (${yid}, ${t.name}, ${t.order}, ${startDate}::date, ${endDate}::date)
+          VALUES (${yid}, ${t.name}, ${t.order}, ${toDate(startDate)}, ${toDate(endDate)})
         `
       }
     }
@@ -109,7 +124,7 @@ export async function createAcademicYear(formData: FormData): Promise<ActionResu
     revalidatePath('/admin/academic-years')
     return { success: true }
   } catch (e: any) {
-    return { success: false, error: e.message ?? 'Erreur lors de la création.' }
+    return { success: false, error: dbError(e) }
   }
 }
 
@@ -142,7 +157,7 @@ export async function createLevel(formData: FormData): Promise<ActionResult> {
     revalidatePath('/admin/subjects')
     return { success: true }
   } catch (e: any) {
-    return { success: false, error: e.message ?? 'Erreur lors de la création.' }
+    return { success: false, error: dbError(e) }
   }
 }
 
@@ -175,7 +190,7 @@ export async function createSubject(formData: FormData): Promise<ActionResult> {
     revalidatePath('/admin/subjects')
     return { success: true }
   } catch (e: any) {
-    return { success: false, error: e.message ?? 'Erreur lors de la création.' }
+    return { success: false, error: dbError(e) }
   }
 }
 
@@ -220,7 +235,7 @@ export async function createClass(formData: FormData): Promise<ActionResult> {
     revalidatePath('/admin/classes')
     return { success: true }
   } catch (e: any) {
-    return { success: false, error: e.message ?? 'Erreur lors de la création.' }
+    return { success: false, error: dbError(e) }
   }
 }
 
@@ -283,7 +298,7 @@ export async function resetTeacherPassword(
     `
     return { success: true, data: { tempPassword } }
   } catch (e: any) {
-    return { success: false, error: e.message }
+    return { success: false, error: dbError(e) }
   }
 }
 
@@ -323,7 +338,7 @@ export async function createTeacher(formData: FormData): Promise<ActionResult> {
     revalidatePath('/admin/teachers')
     return { success: true, data: { tempPassword } }
   } catch (e: any) {
-    return { success: false, error: e.message ?? 'Erreur lors de la création.' }
+    return { success: false, error: dbError(e) }
   }
 }
 
@@ -362,7 +377,88 @@ export async function getStudents(search?: string, classId?: string) {
   ` as Promise<any[]>
 }
 
-export async function createStudent(formData: FormData): Promise<ActionResult> {
+export async function getStudentById(id: string) {
+  const { db } = await getDb()
+  const rows: any[] = await db.$queryRaw`
+    SELECT s.id, s.user_id, s.student_id AS student_number, s.date_of_birth, s.gender, s.address,
+           u.first_name, u.last_name, u.email, u.phone, u.avatar_url, u.is_active, u.created_at,
+           c.name AS class_name, l.name AS level_name, ay.name AS year_name
+    FROM students s
+    JOIN users u ON u.id = s.user_id
+    LEFT JOIN enrollments e  ON e.student_id = s.id AND e.status = 'ACTIVE'
+    LEFT JOIN classes c      ON c.id = e.class_id
+    LEFT JOIN levels l       ON l.id = c.level_id
+    LEFT JOIN academic_years ay ON ay.is_current = TRUE
+    WHERE s.id = ${id}
+    LIMIT 1
+  `
+  return rows[0] ?? null
+}
+
+export async function resetStudentPassword(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const { db } = await getDb()
+  const userId = formData.get('userId') as string
+  if (!userId) return { success: false, error: 'Utilisateur introuvable.' }
+  try {
+    const tempPassword = nanoid(12)
+    const passwordHash = await hash(tempPassword, 12)
+    await db.$executeRaw`UPDATE users SET password_hash = ${passwordHash}, updated_at = NOW() WHERE id = ${userId}`
+    return { success: true, data: { tempPassword } }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+export async function getParentById(id: string) {
+  const { db } = await getDb()
+  const rows: any[] = await db.$queryRaw`
+    SELECT p.id, p.user_id,
+           u.first_name, u.last_name, u.email, u.phone, u.avatar_url, u.is_active, u.created_at,
+           json_agg(DISTINCT jsonb_build_object(
+             'id',         s.id,
+             'first_name', su.first_name,
+             'last_name',  su.last_name,
+             'class_name', c.name,
+             'relation',   ps.relation
+           )) FILTER (WHERE ps.id IS NOT NULL) AS children
+    FROM parents p
+    JOIN users u ON u.id = p.user_id
+    LEFT JOIN parent_students ps ON ps.parent_id = p.id
+    LEFT JOIN students s         ON s.id = ps.student_id
+    LEFT JOIN users su           ON su.id = s.user_id
+    LEFT JOIN enrollments e      ON e.student_id = s.id AND e.status = 'ACTIVE'
+    LEFT JOIN classes c          ON c.id = e.class_id
+    WHERE p.id = ${id}
+    GROUP BY p.id, p.user_id, u.first_name, u.last_name, u.email, u.phone, u.avatar_url, u.is_active, u.created_at
+    LIMIT 1
+  `
+  return rows[0] ?? null
+}
+
+export async function resetParentPassword(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const { db } = await getDb()
+  const userId = formData.get('userId') as string
+  if (!userId) return { success: false, error: 'Utilisateur introuvable.' }
+  try {
+    const tempPassword = nanoid(12)
+    const passwordHash = await hash(tempPassword, 12)
+    await db.$executeRaw`UPDATE users SET password_hash = ${passwordHash}, updated_at = NOW() WHERE id = ${userId}`
+    return { success: true, data: { tempPassword } }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+export async function createStudent(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
   try {
     const { db } = await getDb()
     const firstName   = formData.get('firstName') as string
@@ -394,7 +490,7 @@ export async function createStudent(formData: FormData): Promise<ActionResult> {
 
     await db.$executeRaw`
       INSERT INTO students (user_id, student_id, date_of_birth, gender, address)
-      VALUES (${user[0].id}, ${studentNumber}, ${dateOfBirth ? dateOfBirth + '::date' : null}, ${gender}, ${address})
+      VALUES (${user[0].id}, ${studentNumber}, ${toDate(dateOfBirth)}, ${gender}, ${address})
     `
 
     if (classId) {
@@ -418,7 +514,7 @@ export async function createStudent(formData: FormData): Promise<ActionResult> {
     revalidatePath('/admin/students')
     return { success: true, data: { studentId: studentNumber, tempPassword } }
   } catch (e: any) {
-    return { success: false, error: e.message ?? 'Erreur lors de la création.' }
+    return { success: false, error: dbError(e) }
   }
 }
 
@@ -437,7 +533,10 @@ export async function getParents() {
   ` as Promise<any[]>
 }
 
-export async function createParent(formData: FormData): Promise<ActionResult> {
+export async function createParent(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
   try {
     const { db } = await getDb()
     const firstName = formData.get('firstName') as string
@@ -468,7 +567,7 @@ export async function createParent(formData: FormData): Promise<ActionResult> {
     revalidatePath('/admin/parents')
     return { success: true, data: { tempPassword } }
   } catch (e: any) {
-    return { success: false, error: e.message ?? 'Erreur lors de la création.' }
+    return { success: false, error: dbError(e) }
   }
 }
 
@@ -502,7 +601,7 @@ export async function createFeeType(formData: FormData): Promise<ActionResult> {
     revalidatePath('/admin/fees')
     return { success: true }
   } catch (e: any) {
-    return { success: false, error: e.message ?? 'Erreur lors de la création.' }
+    return { success: false, error: dbError(e) }
   }
 }
 
@@ -741,12 +840,12 @@ export async function createPayment(
   try {
     await db.$executeRaw`
       INSERT INTO payments (student_id, fee_type_id, amount, status, due_date)
-      VALUES (${studentId}, ${feeTypeId}, ${amount}, 'PENDING', ${dueDate}::date)
+      VALUES (${studentId}, ${feeTypeId}, ${amount}, 'PENDING', ${toDate(dueDate)})
     `
     revalidatePath('/admin/payments')
     return { success: true, data: undefined }
   } catch (e: any) {
-    return { success: false, error: e.message }
+    return { success: false, error: dbError(e) }
   }
 }
 

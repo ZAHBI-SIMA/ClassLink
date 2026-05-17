@@ -1,7 +1,9 @@
-import { getParents, createParent } from '@/actions/admin'
+import { getParents } from '@/actions/admin'
+import { ParentCreateForm } from './create-form'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import { getInitials } from '@/lib/utils'
+import Link from 'next/link'
 
 export const metadata = { title: 'Parents' }
 
@@ -17,45 +19,7 @@ export default async function ParentsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Ajouter un parent</h3>
-            <form action={createParent} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Prénom</label>
-                  <input name="firstName" required placeholder="Marie"
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
-                               focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
-                  <input name="lastName" required placeholder="Ouattara"
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
-                               focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
-                <input name="email" type="email" required placeholder="marie.ouattara@gmail.com"
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
-                             focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone</label>
-                <input name="phone" type="tel" placeholder="+225 07 00 00 00 00"
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300
-                             focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <p className="text-xs text-gray-400">
-                Un mot de passe temporaire sera généré automatiquement.
-              </p>
-              <button type="submit"
-                className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm
-                           font-medium rounded-lg transition">
-                Ajouter le parent
-              </button>
-            </form>
-          </div>
+          <ParentCreateForm />
         </div>
 
         <div className="lg:col-span-2">
@@ -78,6 +42,7 @@ export default async function ParentsPage() {
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Parent</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 hidden md:table-cell">Téléphone</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Enfants</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -103,6 +68,12 @@ export default async function ParentsPage() {
                                          font-medium bg-blue-50 text-blue-700">
                           {p.children_count} enfant{p.children_count !== 1 ? 's' : ''}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/admin/parents/${p.id}`}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                          Détails →
+                        </Link>
                       </td>
                     </tr>
                   ))}
