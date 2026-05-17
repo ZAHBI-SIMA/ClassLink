@@ -1,0 +1,150 @@
+// ─── Schéma public — Tables partagées entre tous les tenants ─────────────────
+// Ce schéma gère les écoles clientes, les abonnements et la facturation SaaS.
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── Plans tarifaires ────────────────────────────────────────────────────────
+model Plan {
+  id           String   @id @default(cuid())
+  name         String   // "Gratuit", "Starter", "Pro", "Entreprise"
+  slug         String   @unique
+  priceMonthly Int      // en FCFA (0 = gratuit)
+  priceYearly  Int
+  maxStudents  Int      // -1 = illimité
+  maxStorageMb Int      // en Mo
+  features     Json     // liste des fonctionnalités activées
+  isActive     Boolean  @default(true)
+  schools      School[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("plans")
+}
+
+// ─── Écoles (Tenants) ────────────────────────────────────────────────────────
+model School {
+  id              String       @id @default(cuid())
+  name            String
+  slug            String       @unique
+  subdomain       String?      @unique
+  customDomain    String?      @unique
+  logoUrl         String?
+  address         String?
+  city            String?
+  country         String       @default("CI")
+  phone           String?
+  email           String?
+  adminEmail      String
+  status          SchoolStatus @default(TRIAL)
+  planId          String
+  plan            Plan         @relation(fields: [planId], references: [id])
+  trialEndsAt     DateTime?
+  schemaName      String       @unique // "school_abc123"
+  superAdminNotes String?
+  subscription    Subscription?
+  auditLogs       GlobalAuditLog[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("schools")
+}
+
+enum SchoolStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+// ─── Abonnements ─────────────────────────────────────────────────────────────
+model Subscription {
+  id                 String             @id @default(cuid())
+  schoolId           String             @unique
+  school             School             @relation(fields: [schoolId], references: [id])
+  planId             String
+  billing            BillingCycle       @default(MONTHLY)
+  status             SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean            @default(false)
+  promoCode          String?
+  discountPercent    Int?
+  payments           GlobalPayment[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@map("subscriptions")
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  TRIALING
+}
+
+// ─── Paiements SaaS (abonnements) ────────────────────────────────────────────
+model GlobalPayment {
+  id             String        @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id])
+  amount         Int
+  currency       String        @default("XOF")
+  status         PaymentStatus @default(PENDING)
+  provider       String?
+  providerRef    String?
+  createdAt      DateTime      @default(now())
+
+  @@map("global_payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+// ─── Codes promo ─────────────────────────────────────────────────────────────
+model PromoCode {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountPercent Int
+  maxUses         Int?
+  usedCount       Int       @default(0)
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  @@map("promo_codes")
+}
+
+// ─── Audit log global ────────────────────────────────────────────────────────
+model GlobalAuditLog {
+  id         String   @id @default(cuid())
+  schoolId   String?
+  school     School?  @relation(fields: [schoolId], references: [id])
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([schoolId])
+  @@index([createdAt])
+  @@map("global_audit_logs")
+}
