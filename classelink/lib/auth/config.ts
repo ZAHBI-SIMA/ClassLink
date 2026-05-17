@@ -4,12 +4,15 @@ import Google from 'next-auth/providers/google'
 import { compare } from 'bcryptjs'
 import { z } from 'zod'
 import { getTenantPrisma } from '@/lib/db/tenant'
+import { publicPrisma } from '@/lib/db/public'
 import type { Role } from '@/types'
+// Sentinel pour identifier le Super Admin (pas de schéma tenant)
+export const SUPER_ADMIN_SCHEMA = '__super_admin__'
 
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
-  schemaName: z.string().min(1),
+  schemaName: z.string(),
 })
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
@@ -27,6 +30,48 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
 
         const { email, password, schemaName } = parsed.data
 
+        // ── Connexion Super Admin (schéma public) ──────────────────────────
+        if (schemaName === SUPER_ADMIN_SCHEMA || schemaName === '') {
+          try {
+            const db = publicPrisma as any
+            const admin = await db.superAdminUser.findUnique({
+              where: { email },
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                passwordHash: true,
+                isActive: true,
+              },
+            })
+
+            if (!admin || !admin.isActive) return null
+
+            const valid = await compare(password, admin.passwordHash)
+            if (!valid) return null
+
+            // Mettre à jour la date de dernière connexion
+            await db.superAdminUser.update({
+              where: { id: admin.id },
+              data: { lastLoginAt: new Date() },
+            })
+
+            return {
+              id: admin.id,
+              email: admin.email,
+              name: `${admin.firstName} ${admin.lastName}`,
+              role: 'SUPER_ADMIN' as Role,
+              schemaName: SUPER_ADMIN_SCHEMA,
+              firstName: admin.firstName,
+              lastName: admin.lastName,
+            }
+          } catch {
+            return null
+          }
+        }
+
+        // ── Connexion utilisateur école (schéma tenant) ────────────────────
         try {
           const db = getTenantPrisma(schemaName) as any
           const user = await db.user.findUnique({
@@ -99,5 +144,5 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     verifyRequest: '/verify-email',
   },
 
-  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 }, // 30 jours
+  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
 })

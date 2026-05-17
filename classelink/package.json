@@ -6,7 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "tsx prisma/seed.ts",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1048.0",
@@ -63,6 +69,7 @@
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.3",
     "tailwindcss": "^4",
+    "tsx": "^4.22.1",
     "typescript": "^5"
   }
 }

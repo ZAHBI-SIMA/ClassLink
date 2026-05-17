@@ -117,6 +117,21 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// ─── Super Administrateurs (plateforme) ──────────────────────────────────────
+model SuperAdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("super_admin_users")
+}
+
 // ─── Codes promo ─────────────────────────────────────────────────────────────
 model PromoCode {
   id              String    @id @default(cuid())

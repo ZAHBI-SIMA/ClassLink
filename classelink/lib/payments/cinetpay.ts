@@ -109,14 +109,14 @@ export async function verifyPayment(transactionId: string): Promise<{
   }
 }
 
-export function verifyWebhookSignature(payload: WebhookPayload): boolean {
+export async function verifyWebhookSignature(payload: WebhookPayload): Promise<boolean> {
   const secret = process.env.CINETPAY_SECRET_KEY!
   // Validation de signature selon la doc CinetPay
-  const expectedSignature = generateSignature(payload, secret)
+  const expectedSignature = await generateSignature(payload, secret)
   return payload.signature === expectedSignature
 }
 
-function generateSignature(payload: WebhookPayload, secret: string): string {
+async function generateSignature(payload: WebhookPayload, secret: string): Promise<string> {
   const str = [
     payload.cpm_amount,
     payload.cpm_currency,
@@ -128,6 +128,9 @@ function generateSignature(payload: WebhookPayload, secret: string): string {
     secret,
   ].join('')
 
-  const crypto = require('crypto')
-  return crypto.createHash('sha256').update(str).digest('hex')
+  const encoder = new TextEncoder()
+  const data = encoder.encode(str)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 }
