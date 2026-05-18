@@ -311,6 +311,274 @@ export async function getPlans() {
   return db.plan.findMany({ orderBy: { priceMonthly: 'asc' } })
 }
 
+const planSchema = z.object({
+  name:          z.string().min(2, 'Nom requis (min 2 caractères)'),
+  slug:          z.string().min(2).regex(/^[a-z0-9-]+$/, 'Slug invalide (minuscules, chiffres, tirets)'),
+  priceMonthly:  z.coerce.number().min(0, 'Prix mensuel invalide'),
+  priceYearly:   z.coerce.number().min(0, 'Prix annuel invalide'),
+  maxStudents:   z.coerce.number().min(1, 'Nombre d\'élèves requis'),
+  maxStorageMb:  z.coerce.number().min(100, 'Stockage minimum 100 Mo'),
+  features:      z.string().optional(),
+})
+
+export async function createPlan(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole('SUPER_ADMIN')
+  const parsed = planSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
+  try {
+    const features = (parsed.data.features ?? '').split('\n').map((f: string) => f.trim()).filter(Boolean)
+    const { features: _f, ...rest } = parsed.data
+    await db.plan.create({ data: { ...rest, features, isActive: true } })
+    revalidatePath('/super-admin/plans')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
+export async function updatePlan(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole('SUPER_ADMIN')
+  const id = formData.get('id') as string
+  const parsed = planSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
+  try {
+    const features = (parsed.data.features ?? '').split('\n').map((f: string) => f.trim()).filter(Boolean)
+    const { features: _f, ...rest } = parsed.data
+    await db.plan.update({ where: { id }, data: { ...rest, features } })
+    revalidatePath('/super-admin/plans')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
+export async function togglePlanActive(planId: string, isActive: boolean): Promise<ActionResult> {
+  await requireRole('SUPER_ADMIN')
+  try {
+    await db.plan.update({ where: { id: planId }, data: { isActive } })
+    revalidatePath('/super-admin/plans')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
+export async function deletePlan(planId: string): Promise<ActionResult> {
+  await requireRole('SUPER_ADMIN')
+  try {
+    const count = await db.school.count({ where: { planId } })
+    if (count > 0) {
+      return { success: false, error: `Ce plan est utilisé par ${count} établissement(s). Réaffectez-les d'abord.` }
+    }
+    await db.plan.delete({ where: { id: planId } })
+    revalidatePath('/super-admin/plans')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
+// ─── Abonnements ──────────────────────────────────────────────────────────────
+export async function getSubscriptions(params: {
+  page?:   number
+  status?: string
+  planId?: string
+  search?: string
+} = {}): Promise<PaginatedResult<any>> {
+  await requireRole('SUPER_ADMIN')
+  const page    = params.page ?? 1
+  const perPage = 20
+  const skip    = (page - 1) * perPage
+
+  const where: any = {}
+  if (params.status) where.status = params.status
+  if (params.planId) where.planId = params.planId
+  if (params.search) where.school = { name: { contains: params.search, mode: 'insensitive' } }
+
+  const [data, total] = await Promise.all([
+    db.subscription.findMany({
+      where,
+      skip,
+      take: perPage,
+      orderBy: { currentPeriodEnd: 'asc' },
+      include: {
+        school:   { select: { id: true, name: true, status: true, adminEmail: true } },
+        plan:     { select: { id: true, name: true, priceMonthly: true, priceYearly: true } },
+        payments: { take: 3, orderBy: { createdAt: 'desc' } },
+      },
+    }),
+    db.subscription.count({ where }),
+  ])
+  return { data, total, page, perPage, totalPages: Math.ceil(total / perPage) }
+}
+
+export async function getSubscriptionStats() {
+  await requireRole('SUPER_ADMIN')
+  const [active, pastDue, cancelled, trialing] = await Promise.all([
+    db.subscription.count({ where: { status: 'ACTIVE' } }),
+    db.subscription.count({ where: { status: 'PAST_DUE' } }),
+    db.subscription.count({ where: { status: 'CANCELLED' } }),
+    db.subscription.count({ where: { status: 'TRIALING' } }),
+  ])
+  return { active, pastDue, cancelled, trialing }
+}
+
+export async function updateSubscription(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole('SUPER_ADMIN')
+  const id = formData.get('id') as string
+  try {
+    const data: any = {}
+    const planId          = formData.get('planId')          as string
+    const billing         = formData.get('billing')         as string
+    const status          = formData.get('status')          as string
+    const discountPercent = formData.get('discountPercent') as string
+    const promoCode       = formData.get('promoCode')       as string
+
+    if (planId)                                       data.planId          = planId
+    if (billing)                                      data.billing         = billing
+    if (status)                                       data.status          = status
+    if (discountPercent !== null && discountPercent !== '') data.discountPercent = parseFloat(discountPercent)
+    if (promoCode !== null)                           data.promoCode       = promoCode || null
+
+    await db.subscription.update({ where: { id }, data })
+    revalidatePath('/super-admin/subscriptions')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
+export async function recordManualPayment(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireRole('SUPER_ADMIN')
+  try {
+    const subscriptionId = formData.get('subscriptionId') as string
+    const amount         = parseFloat(formData.get('amount')      as string)
+    const currency       = (formData.get('currency')      as string) || 'XOF'
+    const provider       = (formData.get('provider')      as string) || 'MANUEL'
+    const providerRef    = (formData.get('providerRef')   as string) || `MAN-${Date.now()}`
+
+    if (isNaN(amount) || amount <= 0) return { success: false, error: 'Montant invalide' }
+
+    await db.globalPayment.create({
+      data: { subscriptionId, amount, currency, provider, providerRef, status: 'SUCCESS' },
+    })
+    revalidatePath('/super-admin/subscriptions')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
+// ─── Monitoring ───────────────────────────────────────────────────────────────
+export async function getMonitoringData() {
+  await requireRole('SUPER_ADMIN')
+
+  const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
+
+  const [
+    schoolCount,
+    activeSchools,
+    trialSchools,
+    suspendedSchools,
+    cancelledSchools,
+    totalPayments,
+    successPayments,
+    failedPayments,
+    totalRevenue,
+    recentLogs,
+    recentPaymentsRaw,
+    schoolsWithPlan,
+    subStatuses,
+  ] = await Promise.all([
+    db.school.count(),
+    db.school.count({ where: { status: 'ACTIVE' } }),
+    db.school.count({ where: { status: 'TRIAL' } }),
+    db.school.count({ where: { status: 'SUSPENDED' } }),
+    db.school.count({ where: { status: 'CANCELLED' } }),
+    db.globalPayment.count(),
+    db.globalPayment.count({ where: { status: 'SUCCESS' } }),
+    db.globalPayment.count({ where: { status: 'FAILED' } }),
+    db.globalPayment.aggregate({ where: { status: 'SUCCESS' }, _sum: { amount: true } }),
+    db.globalAuditLog.findMany({
+      take: 25,
+      orderBy: { createdAt: 'desc' },
+      include: { school: { select: { name: true } } },
+    }),
+    db.globalPayment.findMany({
+      where: { status: 'SUCCESS', createdAt: { gte: sixMonthsAgo } },
+      select: { amount: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    db.school.findMany({
+      select: { planId: true, plan: { select: { name: true } } },
+    }),
+    db.subscription.groupBy({
+      by:     ['status'],
+      _count: { id: true },
+    }),
+  ])
+
+  // Revenus mensuels (6 derniers mois, même si 0)
+  const monthMap = new Map<string, number>()
+  for (const p of recentPaymentsRaw) {
+    const key = new Date(p.createdAt).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+    monthMap.set(key, (monthMap.get(key) ?? 0) + p.amount)
+  }
+  const monthlyRevenue: { month: string; amount: number }[] = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date()
+    d.setMonth(d.getMonth() - i)
+    const key = d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+    monthlyRevenue.push({ month: key, amount: monthMap.get(key) ?? 0 })
+  }
+
+  // Distribution par plan (groupé en JS)
+  const planDist = new Map<string, { name: string; count: number }>()
+  for (const school of schoolsWithPlan) {
+    const planName = (school as any).plan?.name ?? 'Sans plan'
+    const key      = (school as any).planId      ?? 'none'
+    planDist.set(key, { name: planName, count: (planDist.get(key)?.count ?? 0) + 1 })
+  }
+
+  const paymentSuccessRate = totalPayments > 0
+    ? Math.round((successPayments / totalPayments) * 100)
+    : 100
+
+  const subStatusMap: Record<string, number> = {}
+  for (const row of subStatuses) {
+    subStatusMap[(row as any).status] = (row as any)._count.id
+  }
+
+  return {
+    schoolCount,
+    activeSchools,
+    trialSchools,
+    suspendedSchools,
+    cancelledSchools,
+    totalPayments,
+    successPayments,
+    failedPayments,
+    paymentSuccessRate,
+    totalRevenue:    totalRevenue._sum.amount ?? 0,
+    recentLogs,
+    monthlyRevenue,
+    planDistribution: Array.from(planDist.values()),
+    subStatusMap,
+  }
+}
+
 // ─── Réparer le schéma tenant (si les tables n'ont pas été créées) ────────────
 export async function repairTenantSchema(schoolId: string): Promise<ActionResult> {
   await requireRole('SUPER_ADMIN')

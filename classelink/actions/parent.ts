@@ -4,6 +4,7 @@ import { getTenantPrisma } from '@/lib/db/tenant'
 import { requireRole } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
 import type { ActionResult } from '@/types'
+import { initiatePayment } from '@/lib/payments/cinetpay'
 
 async function getParentDb() {
   const session = await requireRole('PARENT')
@@ -189,5 +190,63 @@ export async function submitJustification(
     return { success: true, data: undefined }
   } catch (e: any) {
     return { success: false, error: e?.message ?? 'Erreur' }
+  }
+}
+
+export async function initiateOnlinePayment(
+  paymentId: string,
+  studentId: string
+): Promise<ActionResult<{ paymentUrl: string }>> {
+  try {
+    const { db, session } = await getParentDb()
+
+    // Vérifier que l'élève appartient bien à ce parent
+    const check: any[] = await db.$queryRaw`
+      SELECT ps.id FROM parent_students ps
+      JOIN parents p ON p.id = ps.parent_id
+      WHERE p.user_id = ${session.user.id} AND ps.student_id = ${studentId}
+      LIMIT 1
+    `
+    if (!check[0]) return { success: false, error: 'Accès non autorisé.' }
+
+    // Récupérer le paiement
+    const rows: any[] = await db.$queryRaw`
+      SELECT p.id, p.amount, p.status, p.provider_ref,
+             ft.name AS fee_name, p.student_id
+      FROM payments p
+      JOIN fee_types ft ON ft.id = p.fee_type_id
+      WHERE p.id = ${paymentId} AND p.student_id = ${studentId}
+      LIMIT 1
+    `
+    const payment = rows[0]
+    if (!payment) return { success: false, error: 'Paiement introuvable.' }
+    if (payment.status !== 'PENDING') return { success: false, error: 'Ce paiement n\'est pas en attente.' }
+    if (payment.provider_ref) return { success: false, error: 'Une transaction est déjà en cours pour ce paiement.' }
+
+    // Récupérer le profil de l'utilisateur parent
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    const schemaName = session.user.schemaName
+
+    const init = await initiatePayment({
+      amount: Number(payment.amount),
+      description: payment.fee_name,
+      customerId: session.user.id,
+      customerName: session.user.name ?? session.user.email ?? '',
+      customerEmail: session.user.email ?? '',
+      returnUrl: `${baseUrl}/parent/payment/return?paymentId=${paymentId}&studentId=${studentId}`,
+      notifyUrl: `${baseUrl}/api/webhooks/cinetpay`,
+      metadata: { paymentId, schemaName, studentId },
+    })
+
+    // Stocker le transactionId comme provider_ref
+    await db.$executeRaw`
+      UPDATE payments
+      SET provider = 'CINETPAY', provider_ref = ${init.transactionId}
+      WHERE id = ${paymentId}
+    `
+
+    return { success: true, data: { paymentUrl: init.paymentUrl } }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur lors de l\'initiation du paiement.' }
   }
 }

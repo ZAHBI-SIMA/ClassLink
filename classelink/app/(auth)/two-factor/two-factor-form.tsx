@@ -1,10 +1,22 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useActionState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { verify2FALoginAction } from '@/actions/auth'
 
 export function TwoFactorForm() {
   const inputs = useRef<(HTMLInputElement | null)[]>([])
+  const router = useRouter()
+
+  const [state, action, isPending] = useActionState(verify2FALoginAction, null)
+
+  // Rediriger vers le dashboard après succès
+  useEffect(() => {
+    if (state?.success) {
+      router.push('/')
+    }
+  }, [state, router])
 
   // Navigation automatique entre les cases
   function handleInput(index: number, value: string) {
@@ -45,7 +57,7 @@ export function TwoFactorForm() {
         </p>
       </div>
 
-      <form className="space-y-6">
+      <form action={action} className="space-y-6">
         {/* Grille de 6 cases */}
         <div className="flex justify-center gap-2">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -68,13 +80,28 @@ export function TwoFactorForm() {
           ))}
         </div>
 
+        {state && !state.success && (
+          <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 text-center">
+            {state.error}
+          </div>
+        )}
+
         <button
           type="submit"
+          disabled={isPending}
           className="w-full py-2.5 px-4 rounded-lg bg-blue-600 text-white font-medium text-sm
-                     hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                     transition"
+                     hover:bg-blue-700 disabled:opacity-60 focus:outline-none focus:ring-2
+                     focus:ring-blue-500 focus:ring-offset-2 transition flex items-center justify-center gap-2"
         >
-          Vérifier
+          {isPending ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              Vérification...
+            </>
+          ) : 'Vérifier'}
         </button>
       </form>
 

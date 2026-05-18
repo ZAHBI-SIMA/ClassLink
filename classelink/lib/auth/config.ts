@@ -74,7 +74,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
             try {
               const tenantDb = getTenantPrisma(school.schemaName) as any
               const rows: any[] = await tenantDb.$queryRaw`
-                SELECT id, email, first_name, last_name, password_hash, role, is_active, avatar_url
+                SELECT id, email, first_name, last_name, password_hash, role, is_active, avatar_url,
+                       two_factor_enabled
                 FROM users WHERE email = ${email} LIMIT 1
               `
               const user = rows[0]
@@ -92,6 +93,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                 schemaName: school.schemaName,
                 firstName: user.first_name,
                 lastName: user.last_name,
+                twoFactorEnabled: user.two_factor_enabled ?? false,
               }
             } catch { continue }
           }
@@ -114,6 +116,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         token.schemaName = user.schemaName
         token.firstName = user.firstName
         token.lastName = user.lastName
+        token.twoFactorEnabled = (user as any).twoFactorEnabled ?? false
       }
       return token
     },
@@ -125,6 +128,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         session.user.schemaName = token.schemaName
         session.user.firstName = token.firstName
         session.user.lastName = token.lastName
+        session.user.twoFactorEnabled = token.twoFactorEnabled as boolean | undefined
       }
       return session
     },

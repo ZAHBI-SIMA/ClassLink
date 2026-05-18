@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --no-turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
+    "db:setup": "node scripts/setup-local-db.mjs",
+    "db:migrate-supabase": "node scripts/migrate-supabase.mjs",
+    "db:seed-supabase": "node scripts/seed-supabase.mjs",
+    "db:deploy-supabase": "node scripts/migrate-supabase.mjs && node scripts/seed-supabase.mjs",
     "db:push": "prisma db push",
     "db:generate": "prisma generate"
   },

@@ -1,0 +1,66 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { verifyWebhookSignature, verifyPayment } from '@/lib/payments/cinetpay'
+import { getTenantPrisma } from '@/lib/db/tenant'
+
+export async function POST(request: NextRequest) {
+  try {
+    const payload = await request.json()
+
+    // Vérifier la signature CinetPay
+    const isValid = await verifyWebhookSignature(payload)
+    if (!isValid) {
+      console.error('[CinetPay webhook] Invalid signature')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    }
+
+    const transactionId: string = payload.cpm_trans_id
+    const rawCustom: string = payload.cpm_custom ?? '{}'
+
+    // Récupérer le contexte métier stocké dans metadata
+    let metadata: { paymentId?: string; schemaName?: string; studentId?: string } = {}
+    try {
+      metadata = JSON.parse(rawCustom)
+    } catch {
+      console.error('[CinetPay webhook] Failed to parse cpm_custom:', rawCustom)
+      return NextResponse.json({ error: 'Invalid metadata' }, { status: 400 })
+    }
+
+    const { paymentId, schemaName } = metadata
+    if (!paymentId || !schemaName) {
+      console.error('[CinetPay webhook] Missing paymentId or schemaName in metadata')
+      return NextResponse.json({ error: 'Missing metadata fields' }, { status: 400 })
+    }
+
+    // Vérifier le statut auprès de CinetPay
+    const verification = await verifyPayment(transactionId)
+
+    const db = getTenantPrisma(schemaName) as any
+
+    if (verification.status === 'ACCEPTED') {
+      await db.$executeRaw`
+        UPDATE payments
+        SET status = 'SUCCESS', paid_at = NOW()
+        WHERE id = ${paymentId} AND provider_ref = ${transactionId}
+      `
+      console.info(`[CinetPay webhook] Payment ${paymentId} accepted (${transactionId})`)
+    } else if (verification.status === 'REFUSED') {
+      await db.$executeRaw`
+        UPDATE payments
+        SET status = 'FAILED'
+        WHERE id = ${paymentId} AND provider_ref = ${transactionId}
+      `
+      console.warn(`[CinetPay webhook] Payment ${paymentId} refused (${transactionId})`)
+    }
+    // PENDING: on ne fait rien, on attend un prochain appel
+
+    return NextResponse.json({ received: true })
+  } catch (e: any) {
+    console.error('[CinetPay webhook] Unexpected error:', e?.message)
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+  }
+}
+
+// CinetPay envoie parfois un GET pour tester l'URL
+export async function GET() {
+  return NextResponse.json({ status: 'ok' })
+}

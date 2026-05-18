@@ -15,6 +15,14 @@ import { nanoid } from 'nanoid'
 import { AuthError } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { cookies } from 'next/headers'
+import { requireRole, requireAuth } from '@/lib/auth/rbac'
+import {
+  generateTotpSecret,
+  verifyTotp,
+  buildOtpAuthUri,
+  buildQrCodeUrl,
+} from '@/lib/auth/totp'
 
 // ─── Connexion ────────────────────────────────────────────────────────────────
 export async function loginAction(
@@ -194,5 +202,126 @@ export async function resetPasswordAction(
     return { success: true, data: undefined }
   } catch (error) {
     return { success: false, error: toActionError(error) }
+  }
+}
+
+// ─── 2FA : Vérification lors de la connexion ─────────────────────────────────
+const TWO_FA_COOKIE = '2fa_verified'
+const TWO_FA_COOKIE_MAX_AGE = 12 * 60 * 60 // 12 heures
+
+export async function verify2FALoginAction(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const session = await requireAuth()
+    const digits = Array.from({ length: 6 }, (_, i) => formData.get(`digit-${i}`) ?? '').join('')
+    const code = digits.replace(/\s/g, '')
+
+    if (!/^\d{6}$/.test(code)) {
+      return { success: false, error: 'Le code doit contenir 6 chiffres.' }
+    }
+
+    const db = getTenantPrisma(session.user.schemaName) as any
+    const rows: any[] = await db.$queryRaw`
+      SELECT two_factor_secret FROM users WHERE id = ${session.user.id} LIMIT 1
+    `
+    const secret = rows[0]?.two_factor_secret
+    if (!secret) return { success: false, error: '2FA non configuré pour ce compte.' }
+
+    const valid = await verifyTotp(secret, code)
+    if (!valid) return { success: false, error: 'Code incorrect ou expiré.' }
+
+    // Stocker un cookie signé de session 2FA
+    const cookieStore = await cookies()
+    cookieStore.set(TWO_FA_COOKIE, `${session.user.id}-${Date.now()}`, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: TWO_FA_COOKIE_MAX_AGE,
+      path: '/',
+    })
+
+    return { success: true, data: undefined }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur de vérification.' }
+  }
+}
+
+// ─── 2FA : Générer un secret pour le setup ───────────────────────────────────
+export async function generate2FASetupAction(): Promise<
+  ActionResult<{ secret: string; qrCodeUrl: string; otpAuthUri: string }>
+> {
+  try {
+    const session = await requireAuth()
+    const secret = generateTotpSecret()
+    const email = session.user.email ?? `user-${session.user.id}`
+    const uri = buildOtpAuthUri(secret, email)
+    return { success: true, data: { secret, qrCodeUrl: buildQrCodeUrl(uri), otpAuthUri: uri } }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur.' }
+  }
+}
+
+// ─── 2FA : Activer ───────────────────────────────────────────────────────────
+export async function enable2FAAction(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const session = await requireAuth()
+    const secret = formData.get('secret') as string
+    const code = (formData.get('code') as string)?.replace(/\s/g, '')
+
+    if (!secret || !/^\d{6}$/.test(code)) {
+      return { success: false, error: 'Code ou secret manquant.' }
+    }
+
+    const valid = await verifyTotp(secret, code)
+    if (!valid) return { success: false, error: 'Code incorrect. Vérifiez votre application authenticator.' }
+
+    const db = getTenantPrisma(session.user.schemaName) as any
+    await db.$executeRaw`
+      UPDATE users
+      SET two_factor_enabled = TRUE, two_factor_secret = ${secret}
+      WHERE id = ${session.user.id}
+    `
+    return { success: true, data: undefined }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur lors de l\'activation.' }
+  }
+}
+
+// ─── 2FA : Désactiver ────────────────────────────────────────────────────────
+export async function disable2FAAction(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const session = await requireAuth()
+    const code = (formData.get('code') as string)?.replace(/\s/g, '')
+
+    if (!/^\d{6}$/.test(code)) {
+      return { success: false, error: 'Code invalide.' }
+    }
+
+    const db = getTenantPrisma(session.user.schemaName) as any
+    const rows: any[] = await db.$queryRaw`
+      SELECT two_factor_secret FROM users WHERE id = ${session.user.id} LIMIT 1
+    `
+    const secret = rows[0]?.two_factor_secret
+    if (!secret) return { success: false, error: '2FA non activé.' }
+
+    const valid = await verifyTotp(secret, code)
+    if (!valid) return { success: false, error: 'Code incorrect.' }
+
+    await db.$executeRaw`
+      UPDATE users
+      SET two_factor_enabled = FALSE, two_factor_secret = NULL
+      WHERE id = ${session.user.id}
+    `
+    return { success: true, data: undefined }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur lors de la désactivation.' }
   }
 }

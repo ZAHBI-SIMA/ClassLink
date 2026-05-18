@@ -1375,3 +1375,135 @@ export async function removeTeacherAssignment(tscId: string, teacherId: string):
     return { success: false, error: dbError(e) }
   }
 }
+
+// ─── Import CSV Élèves ────────────────────────────────────────────────────────
+
+interface ImportRow {
+  prenom: string
+  nom: string
+  email: string
+  date_naissance?: string
+  genre?: string
+  classe_id?: string
+}
+
+interface ImportResult {
+  created: number
+  errors: { row: number; reason: string }[]
+  passwords: { email: string; tempPassword: string }[]
+}
+
+export async function importStudentsFromCSV(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult<ImportResult>> {
+  try {
+    const session = await requireRole('ADMIN')
+    const db = getTenantPrisma(session.user.schemaName) as any
+    const csv = formData.get('csv') as string
+    if (!csv) return { success: false, error: 'Fichier CSV vide.' }
+
+    // Parse CSV
+    const lines = csv.split('\n').map(l => l.trim()).filter(Boolean)
+    if (lines.length < 2) return { success: false, error: 'Le fichier CSV doit contenir un en-tête et au moins une ligne de données.' }
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''))
+    const requiredCols = ['prenom', 'nom', 'email']
+    for (const col of requiredCols) {
+      if (!headers.includes(col)) {
+        return { success: false, error: `Colonne obligatoire manquante : "${col}". En-têtes trouvés : ${headers.join(', ')}` }
+      }
+    }
+
+    const getCol = (row: string[], colName: string): string => {
+      const idx = headers.indexOf(colName)
+      return idx >= 0 ? (row[idx] ?? '').trim().replace(/^["']|["']$/g, '') : ''
+    }
+
+    const result: ImportResult = { created: 0, errors: [], passwords: [] }
+    const tenantDb = (await requireRole('ADMIN')).user.schemaName
+    const dbClient = getTenantPrisma(tenantDb) as any
+
+    for (let i = 1; i < lines.length; i++) {
+      const row = lines[i].split(',')
+      const rowNum = i + 1
+
+      const firstName = getCol(row, 'prenom')
+      const lastName  = getCol(row, 'nom')
+      const email     = getCol(row, 'email')
+
+      if (!firstName || !lastName || !email) {
+        result.errors.push({ row: rowNum, reason: 'Prénom, nom ou email manquant.' })
+        continue
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        result.errors.push({ row: rowNum, reason: `Email invalide : ${email}` })
+        continue
+      }
+
+      const dateOfBirth = getCol(row, 'date_naissance') || null
+      const gender      = getCol(row, 'genre') || null
+      const classId     = getCol(row, 'classe_id') || null
+      const studentNumber = `EL-${Date.now().toString().slice(-6)}-${i}`
+      const tempPassword  = nanoid(10)
+      const passwordHash  = await hash(tempPassword, 10)
+
+      try {
+        // Vérifier si l'email existe déjà
+        const existing = await dbClient.$queryRaw`
+          SELECT id FROM users WHERE email = ${email} LIMIT 1
+        ` as { id: string }[]
+        if (existing[0]) {
+          result.errors.push({ row: rowNum, reason: `Email déjà utilisé : ${email}` })
+          continue
+        }
+
+        await dbClient.$executeRaw`
+          INSERT INTO users (email, password_hash, first_name, last_name, role)
+          VALUES (${email}, ${passwordHash}, ${firstName}, ${lastName}, 'STUDENT')
+        `
+        const user = await dbClient.$queryRaw`
+          SELECT id FROM users WHERE email = ${email} LIMIT 1
+        ` as { id: string }[]
+
+        if (!user[0]) {
+          result.errors.push({ row: rowNum, reason: 'Erreur lors de la création de l\'utilisateur.' })
+          continue
+        }
+
+        await dbClient.$executeRaw`
+          INSERT INTO students (user_id, student_id, date_of_birth, gender)
+          VALUES (${user[0].id}, ${studentNumber}, ${toDate(dateOfBirth)}, ${gender})
+        `
+
+        if (classId) {
+          const student = await dbClient.$queryRaw`
+            SELECT id FROM students WHERE user_id = ${user[0].id} LIMIT 1
+          ` as { id: string }[]
+          const year = await dbClient.$queryRaw`
+            SELECT id FROM academic_years WHERE is_current = TRUE LIMIT 1
+          ` as { id: string }[]
+
+          if (student[0] && year[0]) {
+            await dbClient.$executeRaw`
+              INSERT INTO enrollments (student_id, class_id, academic_year_id)
+              VALUES (${student[0].id}, ${classId}, ${year[0].id})
+              ON CONFLICT (student_id, academic_year_id) DO NOTHING
+            `
+          }
+        }
+
+        result.created++
+        result.passwords.push({ email, tempPassword })
+      } catch (e: any) {
+        result.errors.push({ row: rowNum, reason: dbError(e) })
+      }
+    }
+
+    revalidatePath('/admin/students')
+    return { success: true, data: result }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur lors de l\'import.' }
+  }
+}

@@ -8,6 +8,7 @@ declare module 'next-auth' {
     schemaName: string
     firstName: string
     lastName: string
+    twoFactorEnabled?: boolean
   }
 
   interface Session {
@@ -20,6 +21,7 @@ declare module 'next-auth' {
       schemaName: string
       firstName: string
       lastName: string
+      twoFactorEnabled?: boolean
     }
   }
 }
@@ -31,5 +33,6 @@ declare module 'next-auth/jwt' {
     schemaName: string
     firstName: string
     lastName: string
+    twoFactorEnabled?: boolean
   }
 }

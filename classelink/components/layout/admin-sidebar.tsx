@@ -3,7 +3,17 @@
 import { SidebarLink } from './sidebar-link'
 import { logoutAction } from '@/actions/auth'
 
-const NAV = [
+type Role = 'ADMIN' | 'CENSOR' | 'ACCOUNTANT'
+
+interface NavItem {
+  label: string
+  href: string
+  exact?: boolean
+  roles?: Role[] // undefined = accessible à tous les rôles admin
+  icon: React.ReactNode
+}
+
+const NAV: NavItem[] = [
   {
     label: 'Tableau de bord',
     href: '/admin',
@@ -18,6 +28,7 @@ const NAV = [
   {
     label: 'Années scolaires',
     href: '/admin/academic-years',
+    roles: ['ADMIN'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -28,6 +39,7 @@ const NAV = [
   {
     label: 'Classes',
     href: '/admin/classes',
+    roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -38,6 +50,7 @@ const NAV = [
   {
     label: 'Matières',
     href: '/admin/subjects',
+    roles: ['ADMIN'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -48,6 +61,7 @@ const NAV = [
   {
     label: 'Enseignants',
     href: '/admin/teachers',
+    roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -58,6 +72,7 @@ const NAV = [
   {
     label: 'Élèves',
     href: '/admin/students',
+    roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -68,6 +83,7 @@ const NAV = [
   {
     label: 'Parents',
     href: '/admin/parents',
+    roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -88,6 +104,7 @@ const NAV = [
   {
     label: 'Notes & Moyennes',
     href: '/admin/grades',
+    roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -98,6 +115,7 @@ const NAV = [
   {
     label: 'Paiements',
     href: '/admin/payments',
+    roles: ['ADMIN', 'ACCOUNTANT'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -108,6 +126,7 @@ const NAV = [
   {
     label: 'Frais scolaires',
     href: '/admin/fees',
+    roles: ['ADMIN', 'ACCOUNTANT'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -118,6 +137,7 @@ const NAV = [
   {
     label: 'Emploi du temps',
     href: '/admin/schedule',
+    roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -138,6 +158,7 @@ const NAV = [
   {
     label: 'Sanctions',
     href: '/admin/sanctions',
+    roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -158,6 +179,7 @@ const NAV = [
   {
     label: 'Paramètres',
     href: '/admin/settings',
+    roles: ['ADMIN'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -169,7 +191,20 @@ const NAV = [
   },
 ]
 
-export function AdminSidebar({ schoolName }: { schoolName?: string }) {
+const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: 'Administration',
+  CENSOR: 'Censure',
+  ACCOUNTANT: 'Comptabilité',
+}
+
+export function AdminSidebar({ schoolName, role = 'ADMIN' }: { schoolName?: string; role?: string }) {
+  const userRole = (role as Role) || 'ADMIN'
+
+  const visibleNav = NAV.filter(item => {
+    if (!item.roles) return true // accessible à tous
+    return item.roles.includes(userRole)
+  })
+
   return (
     <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col h-full">
       <div className="h-16 flex items-center px-5 border-b border-gray-200">
@@ -184,13 +219,15 @@ export function AdminSidebar({ schoolName }: { schoolName?: string }) {
             <p className="text-sm font-bold text-gray-900 leading-tight truncate">
               {schoolName ?? 'ClasseLink'}
             </p>
-            <p className="text-[10px] text-blue-600 font-medium uppercase tracking-wide">Administration</p>
+            <p className="text-[10px] text-blue-600 font-medium uppercase tracking-wide">
+              {ROLE_LABELS[userRole] ?? 'Administration'}
+            </p>
           </div>
         </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-        {NAV.map(item => (
+        {visibleNav.map(item => (
           <SidebarLink key={item.href} {...item} />
         ))}
       </nav>

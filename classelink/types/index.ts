@@ -35,6 +35,7 @@ export interface SessionUser {
   role: Role
   schemaName: string
   avatarUrl?: string
+  twoFactorEnabled?: boolean
 }
 
 // ─── Réponse générique des Server Actions ────────────────────────────────────
