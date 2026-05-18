@@ -94,7 +94,6 @@ CREATE TABLE IF NOT EXISTS teachers (
 );
 
 ALTER TABLE classes DROP CONSTRAINT IF EXISTS fk_head_teacher;
-ALTER TABLE parent_students ALTER COLUMN relation DROP NOT NULL;
 ALTER TABLE classes ADD CONSTRAINT fk_head_teacher
   FOREIGN KEY (head_teacher_id) REFERENCES teachers(id);
 
@@ -132,6 +131,10 @@ CREATE TABLE IF NOT EXISTS parent_students (
   is_primary BOOLEAN DEFAULT FALSE,
   UNIQUE(parent_id, student_id)
 );
+-- Rendre relation nullable pour les tenants existants (migration idempotente)
+DO $$ BEGIN
+  ALTER TABLE parent_students ALTER COLUMN relation DROP NOT NULL;
+EXCEPTION WHEN others THEN NULL; END $$;
 
 -- ─── Inscriptions ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS enrollments (
