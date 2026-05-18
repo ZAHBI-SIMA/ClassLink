@@ -30,6 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# MCP config (contient des tokens secrets)
+.mcp.json
+.claude/settings.local.json
+
 # env files — NE JAMAIS COMMITTER les secrets
 .env
 .env.local
