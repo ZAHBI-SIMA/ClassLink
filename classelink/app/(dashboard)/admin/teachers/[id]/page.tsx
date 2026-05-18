@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
-import { getTeacherById } from '@/actions/admin'
+import { getTeacherById, getSubjects, getClasses } from '@/actions/admin'
 import { ResetPasswordForm } from './reset-password-form'
+import { AssignClassForm } from './assign-class-form'
 import { formatDate } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -10,12 +11,16 @@ interface Props {
 
 export default async function TeacherDetailPage({ params }: Props) {
   const { id } = await params
-  const teacher = await getTeacherById(id)
+  const [teacher, subjects, classes] = await Promise.all([
+    getTeacherById(id),
+    getSubjects(),
+    getClasses(),
+  ])
 
   if (!teacher) notFound()
 
   const initials = `${teacher.first_name[0]}${teacher.last_name[0]}`.toUpperCase()
-  const assignments: any[] = teacher.assignments ?? []
+  const assignments: any[] = (teacher.assignments ?? []).filter(Boolean)
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
@@ -107,32 +112,13 @@ export default async function TeacherDetailPage({ params }: Props) {
         <ResetPasswordForm userId={teacher.user_id} />
       </div>
 
-      {/* Attributions */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Attributions classes / matières</h3>
-        {assignments.length === 0 ? (
-          <p className="text-sm text-gray-400 py-4 text-center">
-            Aucune attribution pour l&apos;année en cours.
-          </p>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {assignments.map((a: any, i: number) => (
-              <div key={i} className="flex items-center justify-between py-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs
-                                   font-medium bg-indigo-50 text-indigo-700">
-                    {a.subject_code}
-                  </span>
-                  <span className="text-sm text-gray-700">{a.subject_name}</span>
-                </div>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
-                  {a.class_name}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Attributions classes / matières avec formulaire */}
+      <AssignClassForm
+        teacherId={id}
+        assignments={assignments}
+        subjects={subjects as any[]}
+        classes={classes as any[]}
+      />
     </div>
   )
 }

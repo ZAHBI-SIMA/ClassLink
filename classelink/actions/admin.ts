@@ -263,6 +263,9 @@ export async function getTeacherById(id: string) {
            COUNT(DISTINCT tsc.class_id)::int  AS class_count,
            COUNT(DISTINCT tsc.subject_id)::int AS subject_count,
            json_agg(DISTINCT jsonb_build_object(
+             'tsc_id',       tsc.id,
+             'class_id',     tsc.class_id,
+             'subject_id',   tsc.subject_id,
              'class_name',   c.name,
              'subject_name', s.name,
              'subject_code', s.code
@@ -1061,6 +1064,22 @@ export async function getTscForClass(classId: string) {
   ` as Promise<any[]>
 }
 
+export async function getScheduleFormData(classId: string) {
+  const { db } = await getDb()
+  const [teachers, subjects] = await Promise.all([
+    db.$queryRaw`
+      SELECT t.id, u.first_name, u.last_name
+      FROM teachers t JOIN users u ON u.id = t.user_id
+      WHERE u.is_active = TRUE
+      ORDER BY u.last_name, u.first_name
+    ` as Promise<any[]>,
+    db.$queryRaw`
+      SELECT id, name, code FROM subjects ORDER BY name
+    ` as Promise<any[]>,
+  ])
+  return { teachers, subjects }
+}
+
 export async function createScheduleSlot(
   prevState: ActionResult | null,
   formData: FormData
@@ -1068,22 +1087,52 @@ export async function createScheduleSlot(
   try {
     const { db } = await getDb()
     const classId   = formData.get('class_id')   as string
-    const tscId     = formData.get('tsc_id')      as string
+    const teacherId = formData.get('teacher_id') as string
+    const subjectId = formData.get('subject_id') as string
     const day       = parseInt(formData.get('day_of_week') as string)
-    const startTime = formData.get('start_time')  as string
-    const endTime   = formData.get('end_time')    as string
+    const startTime = formData.get('start_time') as string
+    const endTime   = formData.get('end_time')   as string
     const room      = (formData.get('room') as string) || null
 
-    if (!classId || !tscId || isNaN(day) || !startTime || !endTime) {
-      return { success: false, error: 'Tous les champs obligatoires sont requis.' }
+    if (!classId || !teacherId || !subjectId || isNaN(day) || !startTime || !endTime) {
+      return { success: false, error: 'Tous les champs sont requis.' }
     }
+    if (startTime >= endTime) {
+      return { success: false, error: 'L\'heure de fin doit être après l\'heure de début.' }
+    }
+
+    // Détecter conflit : même classe, même jour, chevauchement horaire
+    const conflicts = await db.$queryRaw`
+      SELECT id FROM schedules
+      WHERE class_id = ${classId}
+        AND day_of_week = ${day}
+        AND start_time < ${endTime}
+        AND end_time   > ${startTime}
+    ` as any[]
+    if (conflicts.length > 0) {
+      return { success: false, error: 'Ce créneau chevauche un cours existant.' }
+    }
+
+    // Créer ou récupérer le lien enseignant-matière-classe (TSC)
+    await db.$executeRaw`
+      INSERT INTO teacher_subject_classes (teacher_id, class_id, subject_id)
+      VALUES (${teacherId}, ${classId}, ${subjectId})
+      ON CONFLICT (teacher_id, class_id, subject_id) DO NOTHING
+    `
+    const tscRows = await db.$queryRaw`
+      SELECT id FROM teacher_subject_classes
+      WHERE teacher_id = ${teacherId} AND class_id = ${classId} AND subject_id = ${subjectId}
+      LIMIT 1
+    ` as { id: string }[]
+    const tscId = tscRows[0]?.id
+    if (!tscId) return { success: false, error: 'Erreur lors de la liaison enseignant-classe.' }
 
     await db.$executeRaw`
       INSERT INTO schedules (class_id, teacher_subject_class_id, day_of_week, start_time, end_time, room)
       VALUES (${classId}, ${tscId}, ${day}, ${startTime}, ${endTime}, ${room})
     `
     revalidatePath('/admin/schedule')
-    return { success: true, data: undefined }
+    return { success: true }
   } catch (e: any) {
     return { success: false, error: dbError(e) }
   }
@@ -1230,4 +1279,99 @@ export async function getPaymentsForExport() {
     LEFT JOIN classes c ON c.id = e.class_id
     ORDER BY u.last_name, u.first_name, p.created_at DESC
   ` as Promise<any[]>
+}
+
+// ─── Liaison élève ↔ parent ──────────────────────────────────────────────────
+
+export async function getStudentsNotLinkedToParent(parentId: string): Promise<any[]> {
+  const { db } = await getDb()
+  return db.$queryRaw`
+    SELECT s.id, u.first_name, u.last_name, s.student_id AS student_number,
+           c.name AS class_name
+    FROM students s
+    JOIN users u ON u.id = s.user_id
+    LEFT JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+    LEFT JOIN classes c ON c.id = e.class_id
+    WHERE s.id NOT IN (
+      SELECT student_id FROM parent_students WHERE parent_id = ${parentId}
+    )
+    ORDER BY u.last_name, u.first_name
+  ` as Promise<any[]>
+}
+
+export async function linkStudentToParent(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const { db } = await getDb()
+    const parentId  = formData.get('parent_id') as string
+    const studentId = formData.get('student_id') as string
+    const relation  = (formData.get('relation') as string)?.trim() || null
+
+    if (!parentId || !studentId) return { success: false, error: 'Données manquantes.' }
+
+    await db.$executeRaw`
+      INSERT INTO parent_students (parent_id, student_id, relation)
+      VALUES (${parentId}, ${studentId}, ${relation})
+      ON CONFLICT (parent_id, student_id) DO NOTHING
+    `
+    revalidatePath(`/admin/parents/${parentId}`)
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+export async function unlinkStudentFromParent(parentId: string, studentId: string): Promise<ActionResult> {
+  try {
+    const { db } = await getDb()
+    await db.$executeRaw`
+      DELETE FROM parent_students WHERE parent_id = ${parentId} AND student_id = ${studentId}
+    `
+    revalidatePath(`/admin/parents/${parentId}`)
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+// ─── Affectation enseignant → classe + matière ───────────────────────────────
+
+export async function assignTeacherToClass(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const { db } = await getDb()
+    const teacherId = formData.get('teacher_id') as string
+    const classId   = formData.get('class_id') as string
+    const subjectId = formData.get('subject_id') as string
+
+    if (!teacherId || !classId || !subjectId)
+      return { success: false, error: 'Enseignant, classe et matière requis.' }
+
+    await db.$executeRaw`
+      INSERT INTO teacher_subject_classes (teacher_id, class_id, subject_id)
+      VALUES (${teacherId}, ${classId}, ${subjectId})
+      ON CONFLICT (teacher_id, class_id, subject_id) DO NOTHING
+    `
+    revalidatePath(`/admin/teachers/${teacherId}`)
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+export async function removeTeacherAssignment(tscId: string, teacherId: string): Promise<ActionResult> {
+  try {
+    const { db } = await getDb()
+    await db.$executeRaw`
+      DELETE FROM teacher_subject_classes WHERE id = ${tscId}
+    `
+    revalidatePath(`/admin/teachers/${teacherId}`)
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
 }

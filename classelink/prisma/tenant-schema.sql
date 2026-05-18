@@ -93,6 +93,8 @@ CREATE TABLE IF NOT EXISTS teachers (
   hire_date   DATE
 );
 
+ALTER TABLE classes DROP CONSTRAINT IF EXISTS fk_head_teacher;
+ALTER TABLE parent_students ALTER COLUMN relation DROP NOT NULL;
 ALTER TABLE classes ADD CONSTRAINT fk_head_teacher
   FOREIGN KEY (head_teacher_id) REFERENCES teachers(id);
 
@@ -126,7 +128,7 @@ CREATE TABLE IF NOT EXISTS parent_students (
   id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   parent_id  TEXT NOT NULL REFERENCES parents(id),
   student_id TEXT NOT NULL REFERENCES students(id),
-  relation   TEXT NOT NULL,
+  relation   TEXT,
   is_primary BOOLEAN DEFAULT FALSE,
   UNIQUE(parent_id, student_id)
 );

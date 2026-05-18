@@ -1,5 +1,6 @@
-import { getParentById } from '@/actions/admin'
+import { getParentById, getStudentsNotLinkedToParent } from '@/actions/admin'
 import { ResetParentPasswordForm } from './reset-password-form'
+import { LinkStudentForm } from './link-student-form'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatDate, getInitials } from '@/lib/utils'
@@ -10,10 +11,13 @@ interface Props {
 
 export default async function ParentDetailPage({ params }: Props) {
   const { id } = await params
-  const parent = await getParentById(id)
+  const [parent, available] = await Promise.all([
+    getParentById(id),
+    getStudentsNotLinkedToParent(id),
+  ])
   if (!parent) notFound()
 
-  const children: any[] = Array.isArray(parent.children) ? parent.children : []
+  const children: any[] = Array.isArray(parent.children) ? parent.children.filter(Boolean) : []
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -63,43 +67,12 @@ export default async function ParentDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Enfants */}
-      {children.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-900">Enfants associés</h2>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {children.map((child: any) => (
-              <div key={child.id} className="flex items-center justify-between px-5 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center
-                                  text-green-700 text-xs font-semibold">
-                    {getInitials(child.first_name, child.last_name)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{child.first_name} {child.last_name}</p>
-                    {child.class_name && (
-                      <p className="text-xs text-gray-400">{child.class_name}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {child.relation && (
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                      {child.relation}
-                    </span>
-                  )}
-                  <Link href={`/admin/students/${child.id}`}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium">
-                    Détails →
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Gestion des enfants — lier / délier */}
+      <LinkStudentForm
+        parentId={id}
+        available={available as any[]}
+        linked={children}
+      />
 
       {/* Réinitialisation mot de passe */}
       <ResetParentPasswordForm userId={parent.user_id} />

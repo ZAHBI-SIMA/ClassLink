@@ -2,6 +2,7 @@
 
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { requireRole } from '@/lib/auth/rbac'
+import { revalidatePath } from 'next/cache'
 import type { ActionResult } from '@/types'
 
 async function getDb() {
@@ -16,7 +17,7 @@ export async function getInbox(): Promise<any[]> {
     SELECT m.*, u.first_name AS sender_first_name, u.last_name AS sender_last_name, u.role AS sender_role
     FROM messages m
     LEFT JOIN users u ON u.id = m.sender_id
-    WHERE m.recipient_id = ${userId}::uuid
+    WHERE m.recipient_id = ${userId}
     ORDER BY m.created_at DESC
     LIMIT 50
   ` as Promise<any[]>
@@ -29,7 +30,7 @@ export async function getSent(): Promise<any[]> {
     SELECT m.*, u.first_name AS recipient_first_name, u.last_name AS recipient_last_name, u.role AS recipient_role
     FROM messages m
     LEFT JOIN users u ON u.id = m.recipient_id
-    WHERE m.sender_id = ${userId}::uuid
+    WHERE m.sender_id = ${userId}
     ORDER BY m.created_at DESC
     LIMIT 50
   ` as Promise<any[]>
@@ -46,8 +47,8 @@ export async function getMessage(id: string): Promise<any | null> {
     FROM messages m
     LEFT JOIN users s ON s.id = m.sender_id
     LEFT JOIN users r ON r.id = m.recipient_id
-    WHERE m.id = ${id}::uuid
-      AND (m.sender_id = ${userId}::uuid OR m.recipient_id = ${userId}::uuid)
+    WHERE m.id = ${id}
+      AND (m.sender_id = ${userId} OR m.recipient_id = ${userId})
     LIMIT 1
   ` as any[]
 
@@ -56,7 +57,7 @@ export async function getMessage(id: string): Promise<any | null> {
 
   if (String(msg.recipient_id) === String(userId) && !msg.read_at) {
     await db.$executeRaw`
-      UPDATE messages SET read_at = NOW() WHERE id = ${id}::uuid
+      UPDATE messages SET read_at = NOW() WHERE id = ${id}
     `
     msg.read_at = new Date()
   }
@@ -82,10 +83,14 @@ export async function sendMessage(
 
     await db.$executeRaw`
       INSERT INTO messages (sender_id, recipient_id, subject, body)
-      VALUES (${senderId}::uuid, ${recipientId}::uuid, ${subject}, ${body})
+      VALUES (${senderId}, ${recipientId}, ${subject}, ${body})
     `
 
-    return { success: true, data: undefined }
+    revalidatePath('/admin/messages')
+    revalidatePath('/teacher/messages')
+    revalidatePath('/student/messages')
+    revalidatePath('/parent/messages')
+    return { success: true }
   } catch (e: any) {
     return { success: false, error: e?.message ?? 'Une erreur est survenue.' }
   }
@@ -97,8 +102,9 @@ export async function getContacts(): Promise<any[]> {
   return db.$queryRaw`
     SELECT id, first_name, last_name, role
     FROM users
-    WHERE id != ${userId}::uuid
-    ORDER BY first_name, last_name
+    WHERE id != ${userId}
+      AND is_active = TRUE
+    ORDER BY last_name, first_name
   ` as Promise<any[]>
 }
 
@@ -108,7 +114,7 @@ export async function getUnreadCount(): Promise<number> {
   const rows = await db.$queryRaw`
     SELECT COUNT(*)::int AS count
     FROM messages
-    WHERE recipient_id = ${userId}::uuid AND read_at IS NULL
+    WHERE recipient_id = ${userId} AND read_at IS NULL
   ` as any[]
   return rows[0]?.count ?? 0
 }

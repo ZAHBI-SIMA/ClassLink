@@ -22,7 +22,7 @@ export async function getAnnouncements(): Promise<any[]> {
 }
 
 export async function getAnnouncementsAdmin(): Promise<any[]> {
-  const { db } = await getDb(['ADMIN'])
+  const { db } = await getDb(['ADMIN', 'CENSOR'])
   return db.$queryRaw`
     SELECT a.*, u.first_name AS author_first_name, u.last_name AS author_last_name
     FROM announcements a
@@ -56,12 +56,12 @@ export async function createAnnouncement(
     if (classId && expiresAt) {
       await db.$executeRaw`
         INSERT INTO announcements (title, content, author_id, target_roles, class_id, is_pinned, expires_at)
-        VALUES (${title}, ${content}, ${authorId}, ${targetRolesJson}::jsonb, ${classId}::uuid, ${isPinned}, ${expiresAt})
+        VALUES (${title}, ${content}, ${authorId}, ${targetRolesJson}::jsonb, ${classId}, ${isPinned}, ${expiresAt})
       `
     } else if (classId) {
       await db.$executeRaw`
         INSERT INTO announcements (title, content, author_id, target_roles, class_id, is_pinned)
-        VALUES (${title}, ${content}, ${authorId}, ${targetRolesJson}::jsonb, ${classId}::uuid, ${isPinned})
+        VALUES (${title}, ${content}, ${authorId}, ${targetRolesJson}::jsonb, ${classId}, ${isPinned})
       `
     } else if (expiresAt) {
       await db.$executeRaw`
@@ -76,7 +76,7 @@ export async function createAnnouncement(
     }
 
     revalidatePath('/admin/announcements')
-    return { success: true, data: undefined }
+    return { success: true }
   } catch (e: any) {
     return { success: false, error: e?.message ?? 'Une erreur est survenue.' }
   }
@@ -85,9 +85,9 @@ export async function createAnnouncement(
 export async function deleteAnnouncement(id: string): Promise<ActionResult> {
   try {
     const { db } = await getDb(['ADMIN', 'CENSOR'])
-    await db.$executeRaw`DELETE FROM announcements WHERE id = ${id}::uuid`
+    await db.$executeRaw`DELETE FROM announcements WHERE id = ${id}`
     revalidatePath('/admin/announcements')
-    return { success: true, data: undefined }
+    return { success: true }
   } catch (e: any) {
     return { success: false, error: e?.message ?? 'Une erreur est survenue.' }
   }
@@ -97,10 +97,10 @@ export async function togglePin(id: string): Promise<ActionResult> {
   try {
     const { db } = await getDb(['ADMIN', 'CENSOR'])
     await db.$executeRaw`
-      UPDATE announcements SET is_pinned = NOT is_pinned WHERE id = ${id}::uuid
+      UPDATE announcements SET is_pinned = NOT is_pinned WHERE id = ${id}
     `
     revalidatePath('/admin/announcements')
-    return { success: true, data: undefined }
+    return { success: true }
   } catch (e: any) {
     return { success: false, error: e?.message ?? 'Une erreur est survenue.' }
   }
