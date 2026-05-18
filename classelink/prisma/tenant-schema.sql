@@ -366,3 +366,70 @@ CREATE TABLE IF NOT EXISTS school_settings (
   interior_rules_url TEXT,
   updated_at        TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ─── Conseil de classe ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS class_councils (
+  id               TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  class_id         TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  term_id          TEXT NOT NULL REFERENCES terms(id) ON DELETE CASCADE,
+  academic_year_id TEXT REFERENCES academic_years(id),
+  scheduled_at     TIMESTAMPTZ,
+  held_at          TIMESTAMPTZ,
+  status           TEXT NOT NULL DEFAULT 'PLANNED'
+                   CHECK (status IN ('PLANNED','IN_PROGRESS','COMPLETED')),
+  president        TEXT,
+  general_notes    TEXT,
+  created_by       TEXT REFERENCES users(id),
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(class_id, term_id)
+);
+CREATE INDEX IF NOT EXISTS idx_councils_class  ON class_councils(class_id);
+CREATE INDEX IF NOT EXISTS idx_councils_term   ON class_councils(term_id);
+
+CREATE TABLE IF NOT EXISTS council_students (
+  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  council_id      TEXT NOT NULL REFERENCES class_councils(id) ON DELETE CASCADE,
+  student_id      TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  average         NUMERIC(5,2),
+  rank            INT,
+  decision        TEXT NOT NULL DEFAULT 'PASSAGE'
+                  CHECK (decision IN (
+                    'PASSAGE','REDOUBLEMENT','PASSAGE_CONDITIONNEL',
+                    'EXCLUSION','FELICITATIONS','ENCOURAGEMENTS','TABLEAU_HONNEUR'
+                  )),
+  appreciation    TEXT,
+  council_comment TEXT,
+  absences_count  INT DEFAULT 0,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(council_id, student_id)
+);
+CREATE INDEX IF NOT EXISTS idx_council_students_council ON council_students(council_id);
+
+-- ─── Inscriptions en ligne ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS enrollment_applications (
+  id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  academic_year_id  TEXT REFERENCES academic_years(id),
+  first_name        TEXT NOT NULL,
+  last_name         TEXT NOT NULL,
+  date_of_birth     DATE,
+  gender            TEXT CHECK (gender IN ('M','F')),
+  desired_level     TEXT,
+  previous_school   TEXT,
+  previous_average  NUMERIC(5,2),
+  parent_name       TEXT NOT NULL,
+  parent_phone      TEXT NOT NULL,
+  parent_email      TEXT,
+  parent_relation   TEXT DEFAULT 'PARENT',
+  address           TEXT,
+  notes             TEXT,
+  status            TEXT NOT NULL DEFAULT 'PENDING'
+                    CHECK (status IN ('PENDING','ACCEPTED','REJECTED','WAITLISTED')),
+  reviewed_by       TEXT REFERENCES users(id),
+  reviewed_at       TIMESTAMPTZ,
+  review_notes      TEXT,
+  submitted_at      TIMESTAMPTZ DEFAULT NOW(),
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_applications_status       ON enrollment_applications(status);
+CREATE INDEX IF NOT EXISTS idx_applications_academic_year ON enrollment_applications(academic_year_id);

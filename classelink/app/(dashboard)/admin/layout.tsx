@@ -20,16 +20,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   try {
     const db = getTenantPrisma(user.schemaName) as any
     const settings = await db.$queryRaw`
-      SELECT value FROM school_settings WHERE key = 'school_name' LIMIT 1
-    ` as { value: string }[]
-    schoolName = settings[0]?.value
+      SELECT school_name FROM school_settings LIMIT 1
+    ` as { school_name: string }[]
+    schoolName = settings[0]?.school_name
   } catch {
     // Silencieux si les settings ne sont pas encore configurés
   }
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <AdminSidebar schoolName={schoolName} />
+      <AdminSidebar schoolName={schoolName} role={user?.role} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <DashboardHeader />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>

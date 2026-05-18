@@ -408,8 +408,15 @@ export async function getSubscriptions(params: {
       take: perPage,
       orderBy: { currentPeriodEnd: 'asc' },
       include: {
-        school:   { select: { id: true, name: true, status: true, adminEmail: true } },
-        plan:     { select: { id: true, name: true, priceMonthly: true, priceYearly: true } },
+        school: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            adminEmail: true,
+            plan: { select: { id: true, name: true, priceMonthly: true, priceYearly: true } },
+          },
+        },
         payments: { take: 3, orderBy: { createdAt: 'desc' } },
       },
     }),

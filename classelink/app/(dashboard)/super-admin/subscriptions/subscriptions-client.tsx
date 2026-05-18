@@ -11,13 +11,16 @@ type Subscription = {
   id:                 string
   billing:            'MONTHLY' | 'YEARLY'
   status:             string
+  planId:             string
   currentPeriodStart: string | Date | null
   currentPeriodEnd:   string | Date | null
   cancelAtPeriodEnd:  boolean
   promoCode:          string | null
   discountPercent:    number | null
-  school: { id: string; name: string; status: string; adminEmail: string }
-  plan:   { id: string; name: string; priceMonthly: number; priceYearly: number }
+  school: {
+    id: string; name: string; status: string; adminEmail: string
+    plan: { id: string; name: string; priceMonthly: number; priceYearly: number }
+  }
   payments: { id: string; amount: number; status: string; createdAt: string | Date }[]
 }
 
@@ -68,7 +71,7 @@ function EditSubModal({ sub, plans, onClose }: { sub: Subscription; plans: Plan[
 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Plan</label>
-            <select name="planId" defaultValue={sub.plan.id}
+            <select name="planId" defaultValue={sub.school.plan.id}
               className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
@@ -130,7 +133,7 @@ function PaymentModal({ sub, onClose }: { sub: Subscription; onClose: () => void
   const [state, formAction, pending] = useActionState(recordManualPayment, null)
   useEffect(() => { if (state?.success) onClose() }, [state, onClose])
 
-  const suggestedAmount = sub.billing === 'YEARLY' ? sub.plan.priceYearly : sub.plan.priceMonthly
+  const suggestedAmount = sub.billing === 'YEARLY' ? sub.school.plan.priceYearly : sub.school.plan.priceMonthly
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
@@ -157,7 +160,7 @@ function PaymentModal({ sub, onClose }: { sub: Subscription; onClose: () => void
             <input name="amount" type="number" min={1} required defaultValue={suggestedAmount}
               className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <p className="text-xs text-gray-400 mt-1">
-              Plan {sub.plan.name} · {sub.billing === 'YEARLY' ? 'annuel' : 'mensuel'} → {formatCurrency(suggestedAmount)}
+              Plan {sub.school.plan.name} · {sub.billing === 'YEARLY' ? 'annuel' : 'mensuel'} → {formatCurrency(suggestedAmount)}
             </p>
           </div>
 
@@ -349,9 +352,9 @@ export function SubscriptionsClient({
 
                       {/* Plan */}
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-800">{sub.plan.name}</p>
+                        <p className="font-medium text-gray-800">{sub.school.plan.name}</p>
                         <p className="text-xs text-gray-400">
-                          {formatCurrency(sub.billing === 'YEARLY' ? sub.plan.priceYearly : sub.plan.priceMonthly)}
+                          {formatCurrency(sub.billing === 'YEARLY' ? sub.school.plan.priceYearly : sub.school.plan.priceMonthly)}
                           /{sub.billing === 'YEARLY' ? 'an' : 'mois'}
                         </p>
                       </td>

@@ -2,6 +2,7 @@ import { getChildDetails } from '@/actions/parent'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { PayOnlineButton } from './pay-button'
 
 interface Props {
   params: Promise<{ studentId: string }>
@@ -157,6 +158,7 @@ export default async function ChildDetailPage({ params }: Props) {
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Statut</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Échéance</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Payé le</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -174,6 +176,16 @@ export default async function ChildDetailPage({ params }: Props) {
                   </td>
                   <td className="px-4 py-3 text-right text-gray-500 hidden md:table-cell">
                     {p.paid_at ? formatDate(p.paid_at) : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {p.status === 'PENDING' && (
+                      <PayOnlineButton
+                        paymentId={p.id}
+                        studentId={studentId}
+                        amount={p.amount}
+                        feeName={p.fee_name}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}
