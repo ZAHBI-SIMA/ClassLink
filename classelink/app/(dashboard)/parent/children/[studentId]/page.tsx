@@ -3,6 +3,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { PayOnlineButton } from './pay-button'
+import { ChildTabs } from './child-tabs'
 
 interface Props {
   params: Promise<{ studentId: string }>
@@ -32,6 +33,9 @@ export default async function ChildDetailPage({ params }: Props) {
         <span>›</span>
         <span className="text-gray-900 font-medium">{profile.first_name} {profile.last_name}</span>
       </div>
+
+      {/* Navigation onglets */}
+      <ChildTabs studentId={studentId} />
 
       {/* En-tête élève */}
       <div className="flex items-center gap-4">

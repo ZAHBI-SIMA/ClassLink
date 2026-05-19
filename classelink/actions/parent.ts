@@ -193,6 +193,120 @@ export async function submitJustification(
   }
 }
 
+// ─── Helper : vérifier que l'élève appartient au parent ──────────────────────
+async function assertOwnership(db: any, userId: string, studentId: string) {
+  const check: any[] = await db.$queryRaw`
+    SELECT ps.id FROM parent_students ps
+    JOIN parents p ON p.id = ps.parent_id
+    WHERE p.user_id = ${userId} AND ps.student_id = ${studentId}
+    LIMIT 1
+  `
+  return !!check[0]
+}
+
+// ─── Notes par matière et par trimestre ──────────────────────────────────────
+export async function getChildGrades(studentId: string) {
+  const { db, session } = await getParentDb()
+  if (!(await assertOwnership(db, session.user.id, studentId))) return null
+
+  const [terms, rows] = await Promise.all([
+    db.$queryRaw`
+      SELECT t.id, t.name, t.term_order
+      FROM terms t
+      JOIN academic_years ay ON ay.id = t.academic_year_id AND ay.is_current = TRUE
+      ORDER BY t.term_order
+    ` as Promise<any[]>,
+
+    db.$queryRaw`
+      SELECT
+        g.term_id,
+        sub.id   AS subject_id,
+        sub.name AS subject_name,
+        sub.color,
+        COALESCE(ls.coefficient, 1)::float        AS coefficient,
+        ROUND(SUM(g.value * g.coefficient)::numeric
+              / NULLIF(SUM(g.coefficient), 0), 2)  AS subject_avg,
+        COUNT(g.id)::int                           AS grade_count,
+        JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'id', g.id, 'value', g.value,
+            'coefficient', g.coefficient,
+            'grade_type', g.grade_type,
+            'date', g.date
+          ) ORDER BY g.date DESC
+        ) AS grades
+      FROM grades g
+      JOIN subjects sub ON sub.id = g.subject_id
+      JOIN terms t ON t.id = g.term_id
+      JOIN academic_years ay ON ay.id = t.academic_year_id AND ay.is_current = TRUE
+      LEFT JOIN enrollments e ON e.student_id = ${studentId} AND e.status = 'ACTIVE'
+      LEFT JOIN level_subjects ls
+        ON ls.subject_id = g.subject_id
+        AND ls.level_id = (
+          SELECT c.level_id FROM classes c WHERE c.id = e.class_id LIMIT 1
+        )
+      WHERE g.student_id = ${studentId}
+      GROUP BY g.term_id, sub.id, sub.name, sub.color, ls.coefficient
+      ORDER BY sub.name
+    ` as Promise<any[]>,
+  ])
+
+  return { terms: terms as any[], rows: rows as any[] }
+}
+
+// ─── Devoirs et exercices ─────────────────────────────────────────────────────
+export async function getChildAssignments(studentId: string) {
+  const { db, session } = await getParentDb()
+  if (!(await assertOwnership(db, session.user.id, studentId))) return null
+
+  return db.$queryRaw`
+    SELECT
+      a.id, a.title, a.description, a.type, a.due_date, a.max_score,
+      sub.name AS subject_name, sub.color,
+      sm.id          AS submission_id,
+      sm.submitted_at,
+      sm.score,
+      sm.feedback,
+      sm.content     AS submission_content
+    FROM assignments a
+    JOIN subjects sub ON sub.id = a.subject_id
+    LEFT JOIN submissions sm
+      ON sm.assignment_id = a.id AND sm.student_id = ${studentId}
+    WHERE a.class_id = (
+      SELECT e.class_id FROM enrollments e
+      WHERE e.student_id = ${studentId} AND e.status = 'ACTIVE'
+      LIMIT 1
+    )
+    ORDER BY a.due_date DESC NULLS LAST
+    LIMIT 60
+  ` as Promise<any[]>
+}
+
+// ─── Emploi du temps ──────────────────────────────────────────────────────────
+export async function getChildSchedule(studentId: string) {
+  const { db, session } = await getParentDb()
+  if (!(await assertOwnership(db, session.user.id, studentId))) return null
+
+  return db.$queryRaw`
+    SELECT
+      sc.id, sc.day_of_week, sc.start_time, sc.end_time, sc.room,
+      sub.name AS subject_name, sub.color,
+      u.first_name || ' ' || u.last_name AS teacher_name
+    FROM schedules sc
+    JOIN subjects sub ON sub.id = sc.subject_id
+    LEFT JOIN teacher_subject_classes tsc
+      ON tsc.class_id = sc.class_id AND tsc.subject_id = sc.subject_id
+    LEFT JOIN teachers te ON te.id = tsc.teacher_id
+    LEFT JOIN users u ON u.id = te.user_id
+    WHERE sc.class_id = (
+      SELECT e.class_id FROM enrollments e
+      WHERE e.student_id = ${studentId} AND e.status = 'ACTIVE'
+      LIMIT 1
+    )
+    ORDER BY sc.day_of_week, sc.start_time
+  ` as Promise<any[]>
+}
+
 export async function initiateOnlinePayment(
   paymentId: string,
   studentId: string
