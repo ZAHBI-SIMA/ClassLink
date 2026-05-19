@@ -42,7 +42,7 @@ export default async function ChildNotesPage({ params }: Props) {
   }
 
   const GRADE_TYPE: Record<string, string> = {
-    EXAM: 'Examen', QUIZ: 'Interrogation', HOMEWORK: 'Devoir', PROJECT: 'Projet', OTHER: 'Autre',
+    DEVOIR: 'Devoir', INTERROGATION: 'Interro.', COMPOSITION: 'Composition', EXAM: 'Examen',
   }
 
   return (
@@ -149,11 +149,11 @@ export default async function ChildNotesPage({ params }: Props) {
                                 <span className="text-xs text-gray-400">×{g.coefficient}</span>
                               )}
                               <span className="text-xs text-gray-400 border-l border-gray-200 pl-2">
-                                {GRADE_TYPE[g.grade_type] ?? g.grade_type}
+                                {GRADE_TYPE[g.type] ?? g.type}
                               </span>
-                              {g.date && (
+                              {g.published_at && (
                                 <span className="text-xs text-gray-300">
-                                  {new Date(g.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                  {new Date(g.published_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                                 </span>
                               )}
                             </div>

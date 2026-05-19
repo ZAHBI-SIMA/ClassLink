@@ -230,9 +230,10 @@ export async function getChildGrades(studentId: string) {
           JSON_BUILD_OBJECT(
             'id', g.id, 'value', g.value,
             'coefficient', g.coefficient,
-            'grade_type', g.grade_type,
-            'date', g.date
-          ) ORDER BY g.date DESC
+            'type', g.type,
+            'comment', g.comment,
+            'published_at', g.published_at
+          ) ORDER BY g.published_at DESC NULLS LAST
         ) AS grades
       FROM grades g
       JOIN subjects sub ON sub.id = g.subject_id
