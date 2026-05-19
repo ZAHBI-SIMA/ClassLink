@@ -1,4 +1,4 @@
-import { getBulletin, getStudentById, getTerms } from '@/actions/admin'
+import { getBulletinData } from '@/actions/bulletin'
 import { PrintButton } from './print-button'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -7,216 +7,329 @@ interface Props {
   params: Promise<{ studentId: string; termId: string }>
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  DEVOIR: 'Dev.', INTERROGATION: 'Interro.', COMPOSITION: 'Compo.', EXAM: 'Exam.',
+const DECISION_CFG: Record<string, { label: string; cls: string }> = {
+  PASSAGE:             { label: 'Passage',            cls: 'bg-green-100 text-green-700 border-green-200' },
+  PASSAGE_ENCOURAGED:  { label: 'Passage encouragé', cls: 'bg-teal-100 text-teal-700 border-teal-200' },
+  REDOUBLEMENT:        { label: 'Redoublement',       cls: 'bg-red-100 text-red-700 border-red-200' },
+  ORIENTATION:         { label: 'Orientation',        cls: 'bg-orange-100 text-orange-700 border-orange-200' },
+  EXCLUSION:           { label: 'Exclusion',          cls: 'bg-gray-100 text-gray-600 border-gray-200' },
 }
 
-function avgColor(avg: number | null) {
+function getAppreciation(avg: number | null): string {
+  if (avg === null) return '—'
+  if (avg >= 16) return 'Très Bien'
+  if (avg >= 14) return 'Bien'
+  if (avg >= 12) return 'Assez Bien'
+  if (avg >= 10) return 'Passable'
+  if (avg >= 8)  return 'Insuffisant'
+  return 'Très Insuffisant'
+}
+
+function avgColorClass(avg: number | null): string {
   if (avg === null) return 'text-gray-400'
-  return avg >= 10 ? 'text-green-700' : 'text-red-700'
+  if (avg >= 10) return 'text-green-700'
+  return 'text-red-700'
 }
 
-export default async function BulletinPage({ params }: Props) {
-  const { studentId, termId } = await params
-  const data = await getBulletin(studentId, termId)
-  if (!data) notFound()
+function formatDate(d: string | Date | null): string {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+}
 
-  const { school, profile, term, subjectRows, generalAverage, appreciation, attendance, rank, totalStudents } = data
+export default async function BulletinDetailPage({ params }: Props) {
+  const { studentId, termId } = await params
+  const result = await getBulletinData(studentId, termId)
+
+  if (!result.success || !result.data) notFound()
+
+  const { student, term, school, subjects, general_average, class_average, rank, attendance, council } = result.data
+
+  const genAvg  = general_average !== null ? parseFloat(general_average) : null
+  const clsAvg  = class_average   !== null ? parseFloat(class_average)   : null
+  const rankNum  = rank            !== null ? parseInt(rank, 10)          : null
 
   return (
     <>
-      {/* Barre d'actions — masquée à l'impression */}
-      <div className="flex items-center justify-between mb-6 print:hidden">
+      {/* Barre d'outils — masquée à l'impression */}
+      <div className="flex items-center justify-between mb-6 print:hidden no-print">
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Link href="/admin/students" className="hover:text-blue-600">Élèves</Link>
-          <span>›</span>
-          <Link href={`/admin/students/${studentId}`} className="hover:text-blue-600">
-            {profile.first_name} {profile.last_name}
+          <Link href="/admin/bulletin" className="hover:text-blue-600">
+            Bulletins
           </Link>
           <span>›</span>
-          <span className="text-gray-900 font-medium">Bulletin — {term.name}</span>
+          <span className="text-gray-900 font-medium">
+            {student.last_name?.toUpperCase()} {student.first_name} — {term?.name}
+          </span>
         </div>
         <PrintButton />
       </div>
 
-      {/* ══════════════════ BULLETIN (zone imprimable) ══════════════════ */}
-      <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-3xl mx-auto
-                      print:border-0 print:rounded-none print:p-0 print:max-w-none print:mx-0">
+      {/* ════════════════ BULLETIN IMPRIMABLE ════════════════ */}
+      <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-4xl mx-auto
+                      print:border-0 print:rounded-none print:p-0 print:max-w-none print:shadow-none">
 
-        {/* En-tête école */}
-        <div className="flex items-start justify-between border-b-2 border-gray-800 pb-4 mb-5">
-          <div>
-            <p className="text-xl font-bold text-gray-900 uppercase tracking-wide">
-              {school.school_name ?? 'Établissement'}
-            </p>
-            {school.address && <p className="text-xs text-gray-500 mt-0.5">{school.address}</p>}
-            {school.phone   && <p className="text-xs text-gray-500">{school.phone}</p>}
+        {/* En-tête établissement */}
+        <div className="flex items-start justify-between border-b-2 border-gray-800 pb-5 mb-6">
+          <div className="flex items-center gap-4">
+            {/* Emplacement logo */}
+            <div className="w-16 h-16 rounded-lg border-2 border-gray-200 flex items-center
+                            justify-center text-gray-300 flex-shrink-0">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M12 14l9-5-9-5-9 5 9 5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012
+                     20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-xl font-bold text-gray-900 uppercase tracking-wide">
+                {school?.school_name ?? 'Établissement'}
+              </p>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Année scolaire {student.year_name ?? '—'}
+              </p>
+            </div>
           </div>
           <div className="text-right">
-            <p className="text-lg font-bold text-gray-900 uppercase">Bulletin de notes</p>
-            <p className="text-sm text-gray-600 mt-0.5">{term.name} — {profile.year_name ?? ''}</p>
+            <p className="text-2xl font-extrabold text-gray-900 uppercase tracking-widest">
+              Bulletin de Notes
+            </p>
+            <p className="text-base text-gray-600 mt-1 font-semibold">{term?.name ?? '—'}</p>
           </div>
         </div>
 
-        {/* Informations élève */}
-        <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-lg p-4 mb-5 border border-gray-200">
-          <div className="space-y-1.5">
-            <div className="flex gap-2 text-sm">
-              <span className="text-gray-500 w-24 flex-shrink-0">Nom & Prénom</span>
-              <span className="font-semibold text-gray-900">
-                {profile.last_name.toUpperCase()} {profile.first_name}
+        {/* Bandeau élève */}
+        <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl border border-gray-200 p-4 mb-5">
+          <div className="space-y-2">
+            <div className="flex text-sm gap-2">
+              <span className="text-gray-500 w-28 flex-shrink-0 font-medium">Nom &amp; Prénom</span>
+              <span className="font-bold text-gray-900">
+                {student.last_name?.toUpperCase()} {student.first_name}
               </span>
             </div>
-            <div className="flex gap-2 text-sm">
-              <span className="text-gray-500 w-24 flex-shrink-0">N° Élève</span>
-              <span className="font-mono text-gray-900">{profile.student_number ?? '—'}</span>
+            <div className="flex text-sm gap-2">
+              <span className="text-gray-500 w-28 flex-shrink-0 font-medium">Classe</span>
+              <span className="text-gray-900 font-semibold">{student.class_name ?? '—'}</span>
             </div>
-            {profile.date_of_birth && (
-              <div className="flex gap-2 text-sm">
-                <span className="text-gray-500 w-24 flex-shrink-0">Né(e) le</span>
-                <span className="text-gray-900">
-                  {new Date(profile.date_of_birth).toLocaleDateString('fr-FR')}
-                </span>
-              </div>
-            )}
+            <div className="flex text-sm gap-2">
+              <span className="text-gray-500 w-28 flex-shrink-0 font-medium">N° Matricule</span>
+              <span className="text-gray-900 font-mono">{student.student_number ?? '—'}</span>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <div className="flex gap-2 text-sm">
-              <span className="text-gray-500 w-20 flex-shrink-0">Classe</span>
-              <span className="font-semibold text-gray-900">{profile.class_name ?? '—'}</span>
+          <div className="space-y-2">
+            <div className="flex text-sm gap-2">
+              <span className="text-gray-500 w-28 flex-shrink-0 font-medium">Date de naissance</span>
+              <span className="text-gray-900">{formatDate(student.date_of_birth)}</span>
             </div>
-            {rank !== null && totalStudents !== null && (
-              <div className="flex gap-2 text-sm">
-                <span className="text-gray-500 w-20 flex-shrink-0">Rang</span>
-                <span className="font-semibold text-gray-900">
-                  {rank}<sup>{rank === 1 ? 'er' : 'ème'}</sup> / {totalStudents} élèves
-                </span>
-              </div>
-            )}
+            <div className="flex text-sm gap-2">
+              <span className="text-gray-500 w-28 flex-shrink-0 font-medium">Niveau</span>
+              <span className="text-gray-900">{student.level_name ?? '—'}</span>
+            </div>
           </div>
         </div>
 
-        {/* Tableau des notes */}
-        {subjectRows.length === 0 ? (
-          <p className="text-sm text-gray-400 italic text-center py-8">Aucune note enregistrée pour ce trimestre.</p>
+        {/* Bandeau résultats synthèse */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-center">
+            <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide mb-1">
+              Moyenne générale
+            </p>
+            <p className={`text-4xl font-extrabold ${avgColorClass(genAvg)}`}>
+              {genAvg !== null ? genAvg.toFixed(2) : '—'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">/20</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">
+              Rang de classe
+            </p>
+            <p className="text-3xl font-bold text-gray-900">
+              {rankNum !== null ? (
+                <>
+                  {rankNum}
+                  <sup className="text-lg font-normal">{rankNum === 1 ? 'er' : 'ème'}</sup>
+                </>
+              ) : '—'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">élève(s)</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">
+              Moyenne de classe
+            </p>
+            <p className={`text-3xl font-bold ${avgColorClass(clsAvg)}`}>
+              {clsAvg !== null ? clsAvg.toFixed(2) : '—'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">/20</p>
+          </div>
+        </div>
+
+        {/* Tableau des matières */}
+        {subjects.length === 0 ? (
+          <div className="border border-dashed border-gray-300 rounded-xl py-10 text-center mb-5">
+            <p className="text-gray-400 italic text-sm">Aucune note enregistrée pour ce trimestre.</p>
+          </div>
         ) : (
-          <table className="w-full text-sm mb-5 border border-gray-300 rounded-lg overflow-hidden">
+          <table className="w-full text-sm mb-6 border border-gray-200 rounded-xl overflow-hidden">
             <thead>
-              <tr className="bg-gray-800 text-white text-xs uppercase tracking-wide">
-                <th className="text-left px-3 py-2.5">Matière</th>
-                <th className="text-center px-3 py-2.5">Coeff.</th>
-                <th className="text-center px-3 py-2.5 hidden md:table-cell print:table-cell">Notes</th>
-                <th className="text-center px-3 py-2.5">Moy. / 20</th>
-                <th className="text-left px-3 py-2.5">Appréciation</th>
+              <tr className="bg-gray-800 text-white">
+                {['Matière', 'Coeff.', 'Moyenne', 'Appréciation', 'Observations'].map(h => (
+                  <th key={h} className="text-left px-3 py-2.5 text-xs font-semibold uppercase tracking-wide">
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {subjectRows.map((sub: any, i: number) => (
-                <tr key={sub.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="px-3 py-2 font-medium text-gray-900">
-                    <span className="text-xs text-gray-400 mr-1.5">{sub.code}</span>
-                    {sub.name}
-                  </td>
-                  <td className="px-3 py-2 text-center text-gray-600">{sub.coefficient}</td>
-                  <td className="px-3 py-2 text-center hidden md:table-cell print:table-cell">
-                    <div className="flex flex-wrap gap-1 justify-center">
-                      {sub.grades.map((g: any, gi: number) => (
-                        <span key={gi} className="text-xs text-gray-500">
-                          {TYPE_LABELS[g.type] ?? g.type} <strong>{parseFloat(g.value).toFixed(2)}</strong>
-                          {gi < sub.grades.length - 1 && <span className="text-gray-300 mx-0.5">·</span>}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className={`px-3 py-2 text-center font-bold ${avgColor(sub.average)}`}>
-                    {sub.average !== null ? sub.average.toFixed(2) : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-500 italic">
-                    {sub.average !== null
-                      ? (sub.average >= 16 ? 'Très bien'
-                        : sub.average >= 14 ? 'Bien'
-                        : sub.average >= 12 ? 'Assez bien'
-                        : sub.average >= 10 ? 'Passable'
-                        : 'Insuffisant')
-                      : '—'}
-                  </td>
-                </tr>
-              ))}
+              {(subjects as any[]).map((sub: any, i: number) => {
+                const avg = sub.subject_avg !== null ? parseFloat(sub.subject_avg) : null
+                return (
+                  <tr key={sub.subject_id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-3 py-2.5 font-medium text-gray-900">{sub.subject_name}</td>
+                    <td className="px-3 py-2.5 text-center text-gray-600">{sub.coefficient}</td>
+                    <td className={`px-3 py-2.5 text-center font-bold ${avgColorClass(avg)}`}>
+                      {avg !== null ? avg.toFixed(2) : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-gray-500 italic">
+                      {getAppreciation(avg)}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-gray-400">—</td>
+                  </tr>
+                )
+              })}
             </tbody>
             <tfoot>
               <tr className="bg-gray-100 border-t-2 border-gray-800">
-                <td colSpan={3} className="px-3 py-2.5 font-bold text-gray-900 text-right hidden md:table-cell print:table-cell">
+                <td colSpan={2} className="px-3 py-3 font-bold text-gray-900 text-right">
                   Moyenne générale
                 </td>
-                <td className="px-3 py-2.5 font-bold text-gray-900 text-right md:hidden print:hidden">
-                  Moy. générale
+                <td className={`px-3 py-3 text-center text-xl font-extrabold ${avgColorClass(genAvg)}`}>
+                  {genAvg !== null ? genAvg.toFixed(2) : '—'}
                 </td>
-                <td className={`px-3 py-2.5 text-center text-lg font-bold ${avgColor(generalAverage)}`}>
-                  {generalAverage !== null ? generalAverage.toFixed(2) : '—'}
+                <td className={`px-3 py-3 font-semibold italic ${avgColorClass(genAvg)}`}>
+                  {getAppreciation(genAvg)}
                 </td>
-                <td className={`px-3 py-2.5 font-semibold italic ${avgColor(generalAverage)}`}>
-                  {appreciation}
-                </td>
+                <td className="px-3 py-3"></td>
               </tr>
             </tfoot>
           </table>
         )}
 
-        {/* Présences */}
-        <div className="grid grid-cols-2 gap-5 mb-6">
-          <div className="border border-gray-200 rounded-lg p-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Présences — {term.name}</p>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-gray-500">Absences :</span>
-                <span className={`ml-1 font-semibold ${attendance.absent > 0 ? 'text-red-700' : 'text-green-700'}`}>
-                  {attendance.absent}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-500">Retards :</span>
-                <span className={`ml-1 font-semibold ${attendance.late > 0 ? 'text-orange-700' : 'text-green-700'}`}>
-                  {attendance.late}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-500">Non justif. :</span>
-                <span className={`ml-1 font-semibold ${attendance.unjustified > 0 ? 'text-red-800' : 'text-green-700'}`}>
-                  {attendance.unjustified}
-                </span>
-              </div>
+        {/* Absences / Retards */}
+        <div className="mb-6">
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+            Absences &amp; Retards — {term?.name}
+          </h3>
+          <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Absences totales</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Retards</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Non justifiées</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="bg-white">
+                <td className="px-4 py-3">
+                  <span className={`font-bold text-lg ${attendance.absent > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                    {attendance.absent}
+                  </span>
+                  <span className="text-xs text-gray-400 ml-1">séance(s)</span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`font-bold text-lg ${attendance.late > 0 ? 'text-orange-600' : 'text-green-700'}`}>
+                    {attendance.late}
+                  </span>
+                  <span className="text-xs text-gray-400 ml-1">retard(s)</span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`font-bold text-lg ${attendance.unjustified > 0 ? 'text-red-800' : 'text-green-700'}`}>
+                    {attendance.unjustified}
+                  </span>
+                  <span className="text-xs text-gray-400 ml-1">non justifiée(s)</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Décision du conseil de classe */}
+        {council && (
+          <div className="mb-6 border border-gray-200 rounded-xl overflow-hidden">
+            <div className="bg-gray-800 text-white px-4 py-2.5">
+              <p className="text-xs font-bold uppercase tracking-wide">Décision du conseil de classe</p>
+            </div>
+            <div className="p-4 space-y-3">
+              {council.decision && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-500 font-medium w-28">Décision</span>
+                  {(() => {
+                    const cfg = DECISION_CFG[council.decision] ?? { label: council.decision, cls: 'bg-gray-100 text-gray-600 border-gray-200' }
+                    return (
+                      <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold border ${cfg.cls}`}>
+                        {cfg.label}
+                      </span>
+                    )
+                  })()}
+                </div>
+              )}
+              {council.appreciation && (
+                <div className="flex gap-3">
+                  <span className="text-sm text-gray-500 font-medium w-28 flex-shrink-0">Appréciation</span>
+                  <p className="text-sm text-gray-900 italic">&laquo; {council.appreciation} &raquo;</p>
+                </div>
+              )}
+              {council.council_comment && (
+                <div className="flex gap-3">
+                  <span className="text-sm text-gray-500 font-medium w-28 flex-shrink-0">Commentaire</span>
+                  <p className="text-sm text-gray-700">{council.council_comment}</p>
+                </div>
+              )}
+              {council.general_notes && (
+                <div className="border-t border-gray-100 pt-3 mt-1">
+                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Observations générales</p>
+                  <p className="text-sm text-gray-700">{council.general_notes}</p>
+                </div>
+              )}
             </div>
           </div>
+        )}
 
-          {/* Signatures */}
-          <div className="border border-gray-200 rounded-lg p-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Signatures</p>
-            <div className="flex justify-between text-xs text-gray-500 mt-4">
-              <div className="text-center">
-                <div className="h-8 border-b border-gray-300 w-24 mb-1"></div>
-                <p>Le directeur</p>
+        {/* Signatures */}
+        <div className="border border-gray-200 rounded-xl p-5">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-5">Signatures</p>
+          <div className="grid grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="h-16 border-b-2 border-gray-300 mb-2 rounded-sm bg-gray-50"></div>
+              <p className="text-xs text-gray-500 font-medium">Cachet &amp; Signature Direction</p>
+              {school?.principal_name && (
+                <p className="text-xs text-gray-400 mt-0.5">{school.principal_name}</p>
+              )}
+            </div>
+            <div className="text-center">
+              <div className="h-16 border-b-2 border-gray-300 mb-2 rounded-sm bg-gray-50"></div>
+              <p className="text-xs text-gray-500 font-medium">Signature Parent / Tuteur</p>
+            </div>
+            <div className="text-center">
+              <div className="h-16 border-b-2 border-gray-300 mb-2 rounded-sm bg-gray-50 flex items-end justify-center pb-1">
+                <p className="text-xs text-gray-300">
+                  {new Date().toLocaleDateString('fr-FR')}
+                </p>
               </div>
-              <div className="text-center">
-                <div className="h-8 border-b border-gray-300 w-24 mb-1"></div>
-                <p>Parent / Tuteur</p>
-              </div>
+              <p className="text-xs text-gray-500 font-medium">Date</p>
             </div>
           </div>
         </div>
 
         {/* Pied de page */}
-        <div className="border-t border-gray-200 pt-3 text-center text-xs text-gray-400">
-          Bulletin généré par ClasseLink · {new Date().toLocaleDateString('fr-FR')}
+        <div className="mt-6 border-t border-gray-100 pt-3 text-center text-xs text-gray-300">
+          Bulletin généré par ClassLink · {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
         </div>
       </div>
 
       {/* Styles d'impression */}
-      <style>{`
-        @media print {
-          body { background: white !important; }
-          @page { margin: 1cm; size: A4; }
-        }
-      `}</style>
+      <style>{`@media print { .no-print { display: none; } }`}</style>
     </>
   )
 }

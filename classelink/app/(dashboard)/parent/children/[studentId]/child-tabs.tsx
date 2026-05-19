@@ -8,6 +8,7 @@ const TABS = [
   { href: '/notes',            label: 'Notes & Moyennes' },
   { href: '/devoirs',          label: 'Devoirs'          },
   { href: '/emploi-du-temps',  label: 'Emploi du temps'  },
+  { href: '/bulletin',         label: 'Bulletin'         },
 ]
 
 export function ChildTabs({ studentId }: { studentId: string }) {

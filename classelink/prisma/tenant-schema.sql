@@ -436,3 +436,153 @@ CREATE TABLE IF NOT EXISTS enrollment_applications (
 );
 CREATE INDEX IF NOT EXISTS idx_applications_status       ON enrollment_applications(status);
 CREATE INDEX IF NOT EXISTS idx_applications_academic_year ON enrollment_applications(academic_year_id);
+
+-- ─── Bibliothèque ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS books (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  title        TEXT NOT NULL,
+  author       TEXT,
+  isbn         TEXT UNIQUE,
+  category     TEXT,
+  quantity     INT NOT NULL DEFAULT 1,
+  available    INT NOT NULL DEFAULT 1,
+  location     TEXT,
+  description  TEXT,
+  cover_url    TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_books_category ON books(category);
+
+CREATE TABLE IF NOT EXISTS book_loans (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  book_id      TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+  student_id   TEXT REFERENCES students(id),
+  teacher_id   TEXT REFERENCES teachers(id),
+  loaned_at    TIMESTAMPTZ DEFAULT NOW(),
+  due_date     DATE NOT NULL,
+  returned_at  TIMESTAMPTZ,
+  status       TEXT NOT NULL DEFAULT 'ACTIVE'
+               CHECK (status IN ('ACTIVE','RETURNED','OVERDUE','LOST')),
+  notes        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_loans_book    ON book_loans(book_id);
+CREATE INDEX IF NOT EXISTS idx_loans_student ON book_loans(student_id);
+CREATE INDEX IF NOT EXISTS idx_loans_status  ON book_loans(status);
+
+-- ─── Cantine ──────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS cafeteria_menus (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  week_start   DATE NOT NULL,
+  day_of_week  INT NOT NULL CHECK (day_of_week BETWEEN 1 AND 6),
+  meal_type    TEXT NOT NULL DEFAULT 'LUNCH' CHECK (meal_type IN ('BREAKFAST','LUNCH','SNACK')),
+  description  TEXT NOT NULL,
+  price        NUMERIC(10,2),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(week_start, day_of_week, meal_type)
+);
+
+CREATE TABLE IF NOT EXISTS cafeteria_subscriptions (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  academic_year_id TEXT REFERENCES academic_years(id),
+  meal_type    TEXT NOT NULL DEFAULT 'LUNCH',
+  start_date   DATE NOT NULL,
+  end_date     DATE,
+  amount_paid  NUMERIC(10,2) DEFAULT 0,
+  status       TEXT NOT NULL DEFAULT 'ACTIVE'
+               CHECK (status IN ('ACTIVE','SUSPENDED','CANCELLED')),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(student_id, academic_year_id, meal_type)
+);
+CREATE INDEX IF NOT EXISTS idx_cafeteria_sub_student ON cafeteria_subscriptions(student_id);
+
+-- ─── Ressources & Salles ──────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS resources (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name         TEXT NOT NULL,
+  type         TEXT NOT NULL DEFAULT 'ROOM'
+               CHECK (type IN ('ROOM','EQUIPMENT','VEHICLE','OTHER')),
+  capacity     INT,
+  location     TEXT,
+  description  TEXT,
+  is_available BOOLEAN DEFAULT TRUE,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS resource_bookings (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  resource_id  TEXT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+  booked_by    TEXT NOT NULL REFERENCES users(id),
+  title        TEXT NOT NULL,
+  booking_date DATE NOT NULL,
+  start_time   TEXT NOT NULL,
+  end_time     TEXT NOT NULL,
+  purpose      TEXT,
+  status       TEXT NOT NULL DEFAULT 'CONFIRMED'
+               CHECK (status IN ('PENDING','CONFIRMED','CANCELLED')),
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_bookings_resource ON resource_bookings(resource_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_date     ON resource_bookings(booking_date);
+
+-- ─── Sorties scolaires ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS field_trips (
+  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  title           TEXT NOT NULL,
+  description     TEXT,
+  destination     TEXT NOT NULL,
+  trip_date       DATE NOT NULL,
+  return_date     DATE,
+  departure_time  TEXT,
+  cost            NUMERIC(10,2) DEFAULT 0,
+  max_participants INT,
+  organizer_id    TEXT REFERENCES users(id),
+  status          TEXT NOT NULL DEFAULT 'PLANNED'
+                  CHECK (status IN ('PLANNED','CONFIRMED','CANCELLED','COMPLETED')),
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS trip_class_links (
+  trip_id   TEXT NOT NULL REFERENCES field_trips(id) ON DELETE CASCADE,
+  class_id  TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  PRIMARY KEY (trip_id, class_id)
+);
+
+CREATE TABLE IF NOT EXISTS trip_authorizations (
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  trip_id    TEXT NOT NULL REFERENCES field_trips(id) ON DELETE CASCADE,
+  student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  parent_id  TEXT REFERENCES parents(id),
+  status     TEXT NOT NULL DEFAULT 'PENDING'
+             CHECK (status IN ('PENDING','AUTHORIZED','REFUSED')),
+  signed_at  TIMESTAMPTZ,
+  notes      TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(trip_id, student_id)
+);
+CREATE INDEX IF NOT EXISTS idx_auth_trip    ON trip_authorizations(trip_id);
+CREATE INDEX IF NOT EXISTS idx_auth_student ON trip_authorizations(student_id);
+
+-- ─── Alertes automatiques ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS alert_rules (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  type         TEXT NOT NULL
+               CHECK (type IN ('ABSENCE_THRESHOLD','GRADE_DROP','PAYMENT_OVERDUE','LATE_THRESHOLD')),
+  threshold    NUMERIC(6,2) NOT NULL,
+  notify_sms   BOOLEAN DEFAULT TRUE,
+  notify_email BOOLEAN DEFAULT TRUE,
+  is_active    BOOLEAN DEFAULT TRUE,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(type)
+);
+
+CREATE TABLE IF NOT EXISTS alert_logs (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  rule_id      TEXT NOT NULL REFERENCES alert_rules(id),
+  student_id   TEXT NOT NULL REFERENCES students(id),
+  triggered_at TIMESTAMPTZ DEFAULT NOW(),
+  value        NUMERIC(8,2),
+  sent_sms     BOOLEAN DEFAULT FALSE,
+  sent_email   BOOLEAN DEFAULT FALSE,
+  message      TEXT
+);
