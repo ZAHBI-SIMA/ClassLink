@@ -131,7 +131,7 @@ function AssignmentCard({ a, status }: { a: any; status: 'pending' | 'overdue' |
             <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${typeCfg.cls}`}>
               {typeCfg.label}
             </span>
-            <span className="text-xs font-medium text-gray-500" style={{ color: a.color ?? '#6366f1' }}>
+            <span className="text-xs font-medium text-indigo-600">
               {a.subject_name}
             </span>
           </div>

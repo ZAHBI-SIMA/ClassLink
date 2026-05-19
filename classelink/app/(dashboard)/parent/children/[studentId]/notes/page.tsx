@@ -117,8 +117,7 @@ export default async function ChildNotesPage({ params }: Props) {
                     <summary className="flex items-center justify-between px-5 py-3 cursor-pointer
                                         hover:bg-gray-50 list-none select-none">
                       <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: s.color ?? '#6366f1' }} />
+                        <div className="w-2 h-2 rounded-full flex-shrink-0 bg-indigo-400" />
                         <span className="text-sm font-medium text-gray-900">{s.subject_name}</span>
                         <span className="text-xs text-gray-400">coeff. {parseFloat(s.coefficient)}</span>
                       </div>

@@ -222,7 +222,6 @@ export async function getChildGrades(studentId: string) {
         g.term_id,
         sub.id   AS subject_id,
         sub.name AS subject_name,
-        sub.color,
         COALESCE(ls.coefficient, 1)::float        AS coefficient,
         ROUND(SUM(g.value * g.coefficient)::numeric
               / NULLIF(SUM(g.coefficient), 0), 2)  AS subject_avg,
@@ -246,7 +245,7 @@ export async function getChildGrades(studentId: string) {
           SELECT c.level_id FROM classes c WHERE c.id = e.class_id LIMIT 1
         )
       WHERE g.student_id = ${studentId}
-      GROUP BY g.term_id, sub.id, sub.name, sub.color, ls.coefficient
+      GROUP BY g.term_id, sub.id, sub.name, ls.coefficient
       ORDER BY sub.name
     ` as Promise<any[]>,
   ])
@@ -262,7 +261,7 @@ export async function getChildAssignments(studentId: string) {
   return db.$queryRaw`
     SELECT
       a.id, a.title, a.description, a.type, a.due_date, a.max_score,
-      sub.name AS subject_name, sub.color,
+      sub.name AS subject_name,
       sm.id          AS submission_id,
       sm.submitted_at,
       sm.score,
@@ -290,7 +289,7 @@ export async function getChildSchedule(studentId: string) {
   return db.$queryRaw`
     SELECT
       sc.id, sc.day_of_week, sc.start_time, sc.end_time, sc.room,
-      sub.name AS subject_name, sub.color,
+      sub.name AS subject_name,
       u.first_name || ' ' || u.last_name AS teacher_name
     FROM schedules sc
     JOIN subjects sub ON sub.id = sc.subject_id
