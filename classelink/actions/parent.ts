@@ -293,11 +293,10 @@ export async function getChildSchedule(studentId: string) {
       sub.name AS subject_name,
       u.first_name || ' ' || u.last_name AS teacher_name
     FROM schedules sc
-    JOIN subjects sub ON sub.id = sc.subject_id
-    LEFT JOIN teacher_subject_classes tsc
-      ON tsc.class_id = sc.class_id AND tsc.subject_id = sc.subject_id
-    LEFT JOIN teachers te ON te.id = tsc.teacher_id
-    LEFT JOIN users u ON u.id = te.user_id
+    JOIN teacher_subject_classes tsc ON tsc.id = sc.teacher_subject_class_id
+    JOIN subjects sub ON sub.id = tsc.subject_id
+    JOIN teachers te ON te.id = tsc.teacher_id
+    JOIN users u ON u.id = te.user_id
     WHERE sc.class_id = (
       SELECT e.class_id FROM enrollments e
       WHERE e.student_id = ${studentId} AND e.status = 'ACTIVE'
