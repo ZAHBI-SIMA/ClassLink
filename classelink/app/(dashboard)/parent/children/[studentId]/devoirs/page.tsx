@@ -5,13 +5,10 @@ import { ChildTabs } from '../child-tabs'
 
 interface Props { params: Promise<{ studentId: string }> }
 
-const TYPE_LABEL: Record<string, { label: string; cls: string }> = {
-  HOMEWORK:  { label: 'Devoir',        cls: 'bg-blue-100 text-blue-700' },
-  EXERCISE:  { label: 'Exercice',      cls: 'bg-indigo-100 text-indigo-700' },
-  PROJECT:   { label: 'Projet',        cls: 'bg-purple-100 text-purple-700' },
-  EXAM:      { label: 'Évaluation',    cls: 'bg-red-100 text-red-700' },
-  QUIZ:      { label: 'Interro.',      cls: 'bg-orange-100 text-orange-700' },
-  OTHER:     { label: 'Autre',         cls: 'bg-gray-100 text-gray-700' },
+const SUB_STATUS: Record<string, { label: string; cls: string }> = {
+  SUBMITTED: { label: 'Rendu ✓',    cls: 'bg-green-100 text-green-700' },
+  GRADED:    { label: 'Noté ✓',     cls: 'bg-emerald-100 text-emerald-700' },
+  LATE:      { label: 'Retard',     cls: 'bg-orange-100 text-orange-700' },
 }
 
 function isOverdue(dueDate: string | null) {
@@ -121,15 +118,15 @@ function Section({ title, borderCls, children }: {
 }
 
 function AssignmentCard({ a, status }: { a: any; status: 'pending' | 'overdue' | 'submitted' }) {
-  const typeCfg = TYPE_LABEL[a.type] ?? TYPE_LABEL.OTHER
+  const subCfg = SUB_STATUS[a.submission_status] ?? null
 
   return (
     <div className="px-5 py-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${typeCfg.cls}`}>
-              {typeCfg.label}
+            <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-100 text-blue-700">
+              Devoir
             </span>
             <span className="text-xs font-medium text-indigo-600">
               {a.subject_name}
@@ -170,14 +167,14 @@ function AssignmentCard({ a, status }: { a: any; status: 'pending' | 'overdue' |
           )}
 
           {/* Badge statut */}
-          {status === 'submitted' && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-              Rendu ✓
+          {status === 'submitted' && subCfg && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${subCfg.cls}`}>
+              {subCfg.label}
             </span>
           )}
           {status === 'overdue' && (
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-              Retard
+              En retard
             </span>
           )}
           {status === 'pending' && (

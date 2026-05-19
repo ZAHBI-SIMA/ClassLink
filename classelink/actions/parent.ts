@@ -261,13 +261,13 @@ export async function getChildAssignments(studentId: string) {
 
   return db.$queryRaw`
     SELECT
-      a.id, a.title, a.description, a.type, a.due_date, a.max_score,
+      a.id, a.title, a.description, a.due_date, a.max_score,
       sub.name AS subject_name,
       sm.id          AS submission_id,
       sm.submitted_at,
       sm.score,
       sm.feedback,
-      sm.content     AS submission_content
+      sm.status      AS submission_status
     FROM assignments a
     JOIN subjects sub ON sub.id = a.subject_id
     LEFT JOIN submissions sm
