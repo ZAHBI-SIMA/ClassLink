@@ -23,6 +23,12 @@ import {
   buildOtpAuthUri,
   buildQrCodeUrl,
 } from '@/lib/auth/totp'
+import { rateLimit } from '@/lib/rate-limit'
+import {
+  TWO_FA_COOKIE,
+  TWO_FA_MAX_AGE_S,
+  buildSigned2FACookie,
+} from '@/lib/auth/two-fa-cookie'
 
 // ─── Connexion ────────────────────────────────────────────────────────────────
 export async function loginAction(
@@ -36,6 +42,16 @@ export async function loginAction(
 
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  // Rate-limit: 10 attempts per email per 15 minutes
+  const email = parsed.data.email.toLowerCase().trim()
+  const allowed = await rateLimit(`login:${email}`, 10, 15 * 60 * 1000)
+  if (!allowed) {
+    return {
+      success: false,
+      error: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.',
+    }
   }
 
   try {
@@ -206,9 +222,6 @@ export async function resetPasswordAction(
 }
 
 // ─── 2FA : Vérification lors de la connexion ─────────────────────────────────
-const TWO_FA_COOKIE = '2fa_verified'
-const TWO_FA_COOKIE_MAX_AGE = 12 * 60 * 60 // 12 heures
-
 export async function verify2FALoginAction(
   prevState: ActionResult | null,
   formData: FormData
@@ -232,13 +245,13 @@ export async function verify2FALoginAction(
     const valid = await verifyTotp(secret, code)
     if (!valid) return { success: false, error: 'Code incorrect ou expiré.' }
 
-    // Stocker un cookie signé de session 2FA
+    // Stocker un cookie HMAC-signé de session 2FA
     const cookieStore = await cookies()
-    cookieStore.set(TWO_FA_COOKIE, `${session.user.id}-${Date.now()}`, {
+    cookieStore.set(TWO_FA_COOKIE, await buildSigned2FACookie(session.user.id!), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: TWO_FA_COOKIE_MAX_AGE,
+      sameSite: 'strict',
+      maxAge: TWO_FA_MAX_AGE_S,
       path: '/',
     })
 

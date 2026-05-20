@@ -306,6 +306,111 @@ export async function getChildSchedule(studentId: string) {
   ` as Promise<any[]>
 }
 
+// ─── Historique sanctions ─────────────────────────────────────────────────────
+export async function getChildSanctions(studentId: string): Promise<ActionResult<any[]>> {
+  try {
+    const { db, session } = await getParentDb()
+    if (!(await assertOwnership(db, session.user.id, studentId)))
+      return { success: false, error: 'Accès non autorisé.' }
+
+    const rows: any[] = await db.$queryRaw`
+      SELECT s.id, s.type, s.reason, s.description, s.date, s.duration, s.created_at,
+             u.first_name AS issuer_first, u.last_name AS issuer_last
+      FROM sanctions s
+      LEFT JOIN users u ON u.id = s.issued_by
+      WHERE s.student_id = ${studentId}
+      ORDER BY s.date DESC
+    `
+    return { success: true, data: rows }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur' }
+  }
+}
+
+// ─── Agenda scolaire ─────────────────────────────────────────────────────────
+export async function getChildAgenda(studentId: string, month?: string): Promise<ActionResult<any[]>> {
+  try {
+    const { db, session } = await getParentDb()
+    if (!(await assertOwnership(db, session.user.id, studentId)))
+      return { success: false, error: 'Accès non autorisé.' }
+
+    const rows: any[] = await db.$queryRaw`
+      SELECT DISTINCT ae.id, ae.title, ae.description, ae.event_type,
+             ae.start_date, ae.end_date, ae.start_time, ae.end_time, ae.all_classes
+      FROM agenda_events ae
+      JOIN enrollments e ON (ae.class_id = e.class_id OR ae.all_classes = TRUE)
+      WHERE e.student_id = ${studentId} AND e.status = 'ACTIVE'
+        AND (${month ?? null}::text IS NULL
+             OR to_char(ae.start_date, 'YYYY-MM') = ${month ?? null})
+      ORDER BY ae.start_date, ae.start_time NULLS LAST
+    `
+    return { success: true, data: rows }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur' }
+  }
+}
+
+// ─── Résumé hebdomadaire ──────────────────────────────────────────────────────
+export async function getChildWeeklySummary(studentId: string): Promise<ActionResult<any>> {
+  try {
+    const { db, session } = await getParentDb()
+    if (!(await assertOwnership(db, session.user.id, studentId)))
+      return { success: false, error: 'Accès non autorisé.' }
+
+    const [recentGrades, weekAttendance, pendingCount, recentSanctions] = await Promise.all([
+      db.$queryRaw`
+        SELECT g.value, g.max_value, g.type, g.published_at, sub.name AS subject_name
+        FROM grades g
+        JOIN subjects sub ON sub.id = g.subject_id
+        WHERE g.student_id = ${studentId} AND g.published_at IS NOT NULL
+        ORDER BY g.published_at DESC LIMIT 5
+      ` as Promise<any[]>,
+
+      db.$queryRaw`
+        SELECT
+          COUNT(CASE WHEN status='PRESENT' THEN 1 END)::int AS present,
+          COUNT(CASE WHEN status='ABSENT'  THEN 1 END)::int AS absent,
+          COUNT(CASE WHEN status='LATE'    THEN 1 END)::int AS late
+        FROM attendances
+        WHERE student_id = ${studentId}
+          AND date >= date_trunc('week', CURRENT_DATE)
+          AND date <  date_trunc('week', CURRENT_DATE) + INTERVAL '7 days'
+      ` as Promise<any[]>,
+
+      db.$queryRaw`
+        SELECT COUNT(a.id)::int AS cnt
+        FROM assignments a
+        LEFT JOIN submissions sm ON sm.assignment_id = a.id AND sm.student_id = ${studentId}
+        WHERE a.class_id = (
+          SELECT e.class_id FROM enrollments e
+          WHERE e.student_id = ${studentId} AND e.status = 'ACTIVE' LIMIT 1
+        )
+        AND a.due_date BETWEEN NOW() AND NOW() + INTERVAL '7 days'
+        AND sm.id IS NULL
+      ` as Promise<any[]>,
+
+      db.$queryRaw`
+        SELECT s.type, s.reason, s.date
+        FROM sanctions s
+        WHERE s.student_id = ${studentId}
+        ORDER BY s.date DESC LIMIT 2
+      ` as Promise<any[]>,
+    ])
+
+    return {
+      success: true,
+      data: {
+        recentGrades,
+        weekAttendance: weekAttendance[0] ?? { present: 0, absent: 0, late: 0 },
+        pendingAssignments: (pendingCount[0] as any)?.cnt ?? 0,
+        recentSanctions,
+      },
+    }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur' }
+  }
+}
+
 export async function initiateOnlinePayment(
   paymentId: string,
   studentId: string

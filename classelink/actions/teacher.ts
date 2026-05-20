@@ -14,7 +14,7 @@ function toDate(s: string | null | undefined): Date | null {
 async function getTeacherDb() {
   const session = await requireRole('TEACHER', 'ADMIN', 'CENSOR')
   const db = getTenantPrisma(session.user.schemaName) as any
-  return { db, session }
+  return { db, session, role: session.user.role }
 }
 
 export async function getTeacherProfile() {
@@ -134,12 +134,22 @@ export async function saveGrade(
 
   try {
     if (gradeId) {
-      await db.$executeRaw`
-        UPDATE grades
-        SET value = ${value}, coefficient = ${coefficient},
-            comment = ${comment}, updated_at = NOW()
-        WHERE id = ${gradeId}
-      `
+      // TEACHER: can only update grades they created
+      if (session.user.role === 'TEACHER') {
+        await db.$executeRaw`
+          UPDATE grades
+          SET value = ${value}, coefficient = ${coefficient},
+              comment = ${comment}, updated_at = NOW()
+          WHERE id = ${gradeId} AND created_by = ${session.user.id}
+        `
+      } else {
+        await db.$executeRaw`
+          UPDATE grades
+          SET value = ${value}, coefficient = ${coefficient},
+              comment = ${comment}, updated_at = NOW()
+          WHERE id = ${gradeId}
+        `
+      }
     } else {
       await db.$executeRaw`
         INSERT INTO grades
@@ -157,9 +167,16 @@ export async function saveGrade(
 }
 
 export async function deleteGrade(gradeId: string): Promise<ActionResult> {
-  const { db } = await getTeacherDb()
+  const { db, session, role } = await getTeacherDb()
   try {
-    await db.$executeRaw`DELETE FROM grades WHERE id = ${gradeId}`
+    // TEACHER: only their own grades. ADMIN/CENSOR: any grade in the tenant.
+    if (role === 'TEACHER') {
+      await db.$executeRaw`
+        DELETE FROM grades WHERE id = ${gradeId} AND created_by = ${session.user.id}
+      `
+    } else {
+      await db.$executeRaw`DELETE FROM grades WHERE id = ${gradeId}`
+    }
     revalidatePath('/teacher/grades')
     return { success: true, data: undefined }
   } catch (e: any) {
@@ -306,4 +323,98 @@ export async function getTeacherSchedule() {
     WHERE t.user_id = ${session.user.id}
     ORDER BY sc.day_of_week, sc.start_time
   ` as Promise<any[]>
+}
+
+// ─── Analytics Phase 4 ────────────────────────────────────────────────────────
+
+export async function getTeacherClassesWithSubjects() {
+  const { db, session } = await getTeacherDb()
+  return db.$queryRaw`
+    SELECT DISTINCT c.id AS class_id, c.name AS class_name,
+           s.id AS subject_id, s.name AS subject_name
+    FROM teacher_subject_classes tsc
+    JOIN classes c ON c.id = tsc.class_id
+    JOIN subjects s ON s.id = tsc.subject_id
+    JOIN teachers t ON t.id = tsc.teacher_id
+    WHERE t.user_id = ${session.user.id}
+    ORDER BY c.name, s.name
+  ` as Promise<{ class_id: string; class_name: string; subject_id: string; subject_name: string }[]>
+}
+
+export async function getClassGradesExport(
+  classId: string,
+  subjectId: string,
+  termId?: string
+): Promise<ActionResult<any[]>> {
+  try {
+    const { db } = await getTeacherDb()
+    const termIdVal = termId ?? null
+    const rows: any[] = await db.$queryRaw`
+      SELECT u.first_name, u.last_name, s.name AS subject_name,
+             g.type, g.value, g.max_value, g.coefficient,
+             t.name AS term_name, g.published_at
+      FROM grades g
+      JOIN students st ON st.id = g.student_id
+      JOIN users u ON u.id = st.user_id
+      JOIN subjects s ON s.id = g.subject_id
+      JOIN terms t ON t.id = g.term_id
+      JOIN enrollments e ON e.student_id = st.id AND e.class_id = ${classId}
+      WHERE g.subject_id = ${subjectId}
+        AND (${termIdVal} IS NULL OR g.term_id = ${termIdVal})
+      ORDER BY u.last_name, u.first_name, t.term_order, g.published_at
+    `
+    return { success: true, data: rows }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
+}
+
+export async function getStudentProgressData(
+  classId: string,
+  subjectId: string
+): Promise<ActionResult<any[]>> {
+  try {
+    const { db } = await getTeacherDb()
+    const rows: any[] = await db.$queryRaw`
+      SELECT u.first_name || ' ' || u.last_name AS student_name,
+             st.id AS student_id,
+             t.name AS term_name, t.term_order,
+             ROUND(AVG(g.value / g.max_value * 20), 2) AS avg_20
+      FROM grades g
+      JOIN students st ON st.id = g.student_id
+      JOIN users u ON u.id = st.user_id
+      JOIN terms t ON t.id = g.term_id
+      JOIN enrollments e ON e.student_id = st.id AND e.class_id = ${classId}
+      WHERE g.subject_id = ${subjectId}
+      GROUP BY st.id, u.first_name, u.last_name, t.id, t.name, t.term_order
+      ORDER BY t.term_order, u.last_name
+    `
+    return { success: true, data: rows }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
+}
+
+export async function getAtRiskStudents(classId: string): Promise<ActionResult<any[]>> {
+  try {
+    const { db } = await getTeacherDb()
+    const rows: any[] = await db.$queryRaw`
+      SELECT u.first_name, u.last_name, st.id AS student_id,
+             ROUND(AVG(g.value / g.max_value * 20), 2) AS overall_avg,
+             COUNT(DISTINCT CASE WHEN a.status IN ('ABSENT','LATE') THEN a.id END) AS absence_count,
+             COUNT(DISTINCT g.id) AS grade_count
+      FROM students st
+      JOIN users u ON u.id = st.user_id
+      JOIN enrollments e ON e.student_id = st.id AND e.class_id = ${classId} AND e.status = 'ACTIVE'
+      LEFT JOIN grades g ON g.student_id = st.id
+      LEFT JOIN attendances a ON a.student_id = st.id
+      GROUP BY st.id, u.first_name, u.last_name
+      HAVING AVG(g.value / g.max_value * 20) < 10
+          OR COUNT(DISTINCT CASE WHEN a.status IN ('ABSENT','LATE') THEN a.id END) > 5
+      ORDER BY overall_avg ASC NULLS LAST
+    `
+    return { success: true, data: rows }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
 }

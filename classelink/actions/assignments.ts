@@ -183,7 +183,7 @@ export async function gradeSubmission(
   prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
-  const { db } = await getTeacherDb()
+  const { db, session } = await getTeacherDb()
 
   const submissionId  = formData.get('submission_id') as string
   const scoreRaw      = formData.get('score')         as string
@@ -198,13 +198,18 @@ export async function gradeSubmission(
   }
 
   try {
+    // Verify the submission belongs to an assignment owned by the calling teacher
     await db.$executeRaw`
-      UPDATE submissions
+      UPDATE submissions sub
       SET score      = ${score},
           feedback   = ${feedback},
           graded_at  = NOW(),
           status     = 'GRADED'
-      WHERE id = ${submissionId}
+      FROM assignments a
+      JOIN teachers t ON t.id::text = a.teacher_id
+      WHERE sub.id            = ${submissionId}
+        AND sub.assignment_id = a.id
+        AND (t.user_id = ${session.user.id} OR ${session.user.role !== 'TEACHER'})
     `
     revalidatePath('/teacher/assignments')
     if (assignmentId) {

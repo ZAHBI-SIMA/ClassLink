@@ -64,10 +64,26 @@ export default auth(function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  // 2FA obligatoire : si activé et cookie de vérification absent → /two-factor
+  // 2FA obligatoire : si activé et cookie de vérification absent/invalide → /two-factor
   if (session.user.twoFactorEnabled && pathname !== '/two-factor') {
     const twoFaVerified = request.cookies.get('2fa_verified')?.value
-    if (!twoFaVerified || !twoFaVerified.startsWith(session.user.id)) {
+    const is2FAValid = twoFaVerified
+      ? (() => {
+          // Nouveau format HMAC : `${userId}:${expiresAt}.${hmacSig}`
+          // Vérification structurelle + userId + expiration (HMAC complet côté Server Action)
+          try {
+            const lastDot = twoFaVerified.lastIndexOf('.')
+            if (lastDot === -1) return false
+            const payload = twoFaVerified.slice(0, lastDot)
+            const [uid, expiresAtStr] = payload.split(':')
+            if (uid !== session.user.id) return false
+            const expiresAt = parseInt(expiresAtStr, 10)
+            if (isNaN(expiresAt) || Date.now() > expiresAt) return false
+            return true
+          } catch { return false }
+        })()
+      : false
+    if (!is2FAValid) {
       return NextResponse.redirect(new URL('/two-factor', request.url))
     }
   }

@@ -586,3 +586,170 @@ CREATE TABLE IF NOT EXISTS alert_logs (
   sent_email   BOOLEAN DEFAULT FALSE,
   message      TEXT
 );
+
+-- ─── Récompenses élèves ───────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS rewards (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  type         TEXT NOT NULL CHECK (type IN ('FELICITATIONS','ENCOURAGEMENTS','TABLEAU_HONNEUR','PRIX','MENTION','AUTRE')),
+  title        TEXT NOT NULL,
+  description  TEXT,
+  date         DATE NOT NULL DEFAULT CURRENT_DATE,
+  term_id      TEXT REFERENCES terms(id),
+  issued_by    TEXT NOT NULL REFERENCES users(id),
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_rewards_student ON rewards(student_id);
+
+-- ─── Convocations ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS convocations (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  parent_id    TEXT REFERENCES parents(id),
+  type         TEXT NOT NULL CHECK (type IN ('DISCIPLINAIRE','ACADEMIQUE','ADMINISTRATIF','AUTRE')),
+  reason       TEXT NOT NULL,
+  scheduled_at TIMESTAMPTZ NOT NULL,
+  location     TEXT,
+  status       TEXT NOT NULL DEFAULT 'PENDING'
+               CHECK (status IN ('PENDING','CONFIRMED','COMPLETED','CANCELLED')),
+  notes        TEXT,
+  issued_by    TEXT NOT NULL REFERENCES users(id),
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_convocations_student ON convocations(student_id);
+
+-- ─── Bourses & Réductions ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS scholarships (
+  id               TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  student_id       TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  academic_year_id TEXT REFERENCES academic_years(id),
+  type             TEXT NOT NULL CHECK (type IN ('BOURSE_ETAT','BOURSE_INTERNE','REDUCTION','EXONERATION','AIDE_SOCIALE')),
+  label            TEXT NOT NULL,
+  amount           NUMERIC(12,2),
+  percentage       NUMERIC(5,2),
+  reason           TEXT,
+  status           TEXT NOT NULL DEFAULT 'ACTIVE'
+                   CHECK (status IN ('ACTIVE','SUSPENDED','EXPIRED')),
+  start_date       DATE,
+  end_date         DATE,
+  granted_by       TEXT REFERENCES users(id),
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_scholarships_student ON scholarships(student_id);
+
+-- ─── Quiz / QCM ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS quizzes (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  title        TEXT NOT NULL,
+  description  TEXT,
+  subject_id   TEXT REFERENCES subjects(id),
+  class_id     TEXT REFERENCES classes(id),
+  term_id      TEXT REFERENCES terms(id),
+  created_by   TEXT NOT NULL REFERENCES users(id),
+  time_limit   INT,
+  max_attempts INT DEFAULT 1,
+  is_published BOOLEAN DEFAULT FALSE,
+  due_date     TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_quizzes_class ON quizzes(class_id);
+
+CREATE TABLE IF NOT EXISTS quiz_questions (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  quiz_id      TEXT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+  question     TEXT NOT NULL,
+  type         TEXT NOT NULL DEFAULT 'MCQ' CHECK (type IN ('MCQ','TRUE_FALSE','SHORT')),
+  options      JSONB,
+  correct      TEXT NOT NULL,
+  points       NUMERIC(4,2) DEFAULT 1,
+  order_num    INT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_questions_quiz ON quiz_questions(quiz_id);
+
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  quiz_id      TEXT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  answers      JSONB,
+  score        NUMERIC(6,2),
+  max_score    NUMERIC(6,2),
+  started_at   TIMESTAMPTZ DEFAULT NOW(),
+  submitted_at TIMESTAMPTZ,
+  status       TEXT NOT NULL DEFAULT 'IN_PROGRESS'
+               CHECK (status IN ('IN_PROGRESS','SUBMITTED','GRADED'))
+);
+CREATE INDEX IF NOT EXISTS idx_attempts_quiz    ON quiz_attempts(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_attempts_student ON quiz_attempts(student_id);
+
+-- ─── Badges & XP ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS student_badges (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  badge_type   TEXT NOT NULL CHECK (badge_type IN (
+                 'FIRST_QUIZ','PERFECT_SCORE','STREAK_7','STREAK_30',
+                 'TOP_CLASS','TOP_SCHOOL','ASSIDUOUS','BOOKWORM',
+                 'HELPER','CREATIVE','PROGRESS','CHAMPION')),
+  earned_at    TIMESTAMPTZ DEFAULT NOW(),
+  details      TEXT,
+  UNIQUE(student_id, badge_type)
+);
+CREATE INDEX IF NOT EXISTS idx_badges_student ON student_badges(student_id);
+
+CREATE TABLE IF NOT EXISTS student_xp (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  source       TEXT NOT NULL,
+  points       INT NOT NULL DEFAULT 0,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_xp_student ON student_xp(student_id);
+
+-- ─── To-do liste élève ───────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS student_todos (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  title        TEXT NOT NULL,
+  description  TEXT,
+  due_date     DATE,
+  priority     TEXT NOT NULL DEFAULT 'MEDIUM'
+               CHECK (priority IN ('LOW','MEDIUM','HIGH')),
+  completed    BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_todos_student ON student_todos(student_id);
+
+-- ─── Objectifs académiques ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS student_goals (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  student_id   TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  subject_id   TEXT REFERENCES subjects(id),
+  title        TEXT NOT NULL,
+  target_value NUMERIC(5,2),
+  current_value NUMERIC(5,2) DEFAULT 0,
+  unit         TEXT DEFAULT 'points',
+  deadline     DATE,
+  status       TEXT NOT NULL DEFAULT 'ACTIVE'
+               CHECK (status IN ('ACTIVE','ACHIEVED','ABANDONED')),
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_goals_student ON student_goals(student_id);
+
+-- ─── Agenda scolaire ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS agenda_events (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  title        TEXT NOT NULL,
+  description  TEXT,
+  event_type   TEXT NOT NULL DEFAULT 'GENERAL'
+               CHECK (event_type IN ('EXAM','HOLIDAY','MEETING','ACTIVITY','DEADLINE','GENERAL')),
+  start_date   DATE NOT NULL,
+  end_date     DATE,
+  start_time   TEXT,
+  end_time     TEXT,
+  class_id     TEXT REFERENCES classes(id),
+  all_classes  BOOLEAN DEFAULT FALSE,
+  created_by   TEXT NOT NULL REFERENCES users(id),
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agenda_date  ON agenda_events(start_date);
+CREATE INDEX IF NOT EXISTS idx_agenda_class ON agenda_events(class_id);
