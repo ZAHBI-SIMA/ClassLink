@@ -25,7 +25,29 @@ export default async function ParentBulletinDetailPage({ params }: Props) {
   const { studentId, termId } = await params
 
   const result = await getBulletinData(studentId, termId)
-  if (!result.success || !result.data) notFound()
+
+  if (!result.success) {
+    return (
+      <div className="max-w-2xl mx-auto mt-10 bg-white rounded-xl border border-red-200 p-8 text-center">
+        <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+          <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <p className="text-base font-semibold text-gray-900 mb-1">Bulletin momentanément indisponible</p>
+        <p className="text-sm text-gray-500 mb-5">{result.error ?? 'Une erreur est survenue.'}</p>
+        <Link
+          href={`/parent/children/${studentId}/bulletin/${termId}`}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition"
+        >
+          Réessayer
+        </Link>
+      </div>
+    )
+  }
+
+  if (!result.data) notFound()
 
   const { student, term, school, subjects, general_average, class_average, rank, attendance, council } = result.data
 
@@ -59,7 +81,7 @@ export default async function ParentBulletinDetailPage({ params }: Props) {
             </svg>
             Retour
           </Link>
-          <PrintButton />
+          <PrintButton studentId={studentId} termId={termId} />
         </div>
       </div>
 

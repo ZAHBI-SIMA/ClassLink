@@ -46,6 +46,16 @@ export default auth(function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') ?? ''
   const session = (request as any).auth
 
+  // Page d'accueil publique : visiteurs → landing, connectés → leur espace
+  if (pathname === '/') {
+    if (session?.user) {
+      const role = session.user.role as string
+      const dest = ROLE_DEFAULT_PATHS[role] ?? '/admin'
+      return NextResponse.redirect(new URL(dest, request.url))
+    }
+    return NextResponse.next()
+  }
+
   // Laisser passer les routes publiques
   if (isPublicPath(pathname)) {
     // Si déjà connecté et tente d'accéder au login, rediriger vers le dashboard
@@ -94,13 +104,6 @@ export default auth(function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
     return NextResponse.next()
-  }
-
-  // Racine → rediriger vers le dashboard du rôle
-  if (pathname === '/') {
-    const role = session.user.role as string
-    const dest = ROLE_DEFAULT_PATHS[role] ?? '/admin'
-    return NextResponse.redirect(new URL(dest, request.url))
   }
 
   const response = NextResponse.next()

@@ -87,11 +87,11 @@ export function SettingsForm({ settings, subscription }: Props) {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Site web</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
               <input
-                name="website"
-                defaultValue={settings.website ?? ''}
-                placeholder="https://www.lycee-moderne.ci"
+                name="city"
+                defaultValue={settings.city ?? ''}
+                placeholder="Abidjan"
                 className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-300
                            focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -114,37 +114,9 @@ export function SettingsForm({ settings, subscription }: Props) {
                 className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-300
                            focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Type d&apos;établissement
-              </label>
-              <select
-                name="school_type"
-                defaultValue={settings.school_type ?? ''}
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-300
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="">— Sélectionner —</option>
-                <option value="primaire">Primaire</option>
-                <option value="college">Collège</option>
-                <option value="lycee">Lycée</option>
-                <option value="mixte">Mixte (Collège + Lycée)</option>
-                <option value="technique">Technique &amp; Professionnel</option>
-                <option value="superieur">Supérieur</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Devise / Motto
-              </label>
-              <input
-                name="motto"
-                defaultValue={settings.motto ?? ''}
-                placeholder="Savoir, Savoir-faire, Savoir-être"
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-300
-                           focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <p className="mt-1 text-xs text-gray-400">
+                Ce nom apparaît sur les bulletins et leur export PDF.
+              </p>
             </div>
           </div>
         </section>

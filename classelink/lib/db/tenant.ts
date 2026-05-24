@@ -16,8 +16,10 @@ export function getTenantPrisma(schemaName: string): PrismaClient {
   // Définir le search_path PostgreSQL pour isoler le schéma tenant
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    // Chaque connexion pointe sur le schéma du tenant
     options: `-c search_path="${schemaName}",public`,
+    max: 5,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 10_000,
   })
 
   const adapter = new PrismaPg(pool)

@@ -1,6 +1,7 @@
 'use server'
 
 import { getTenantPrisma } from '@/lib/db/tenant'
+import { withRetry } from '@/lib/db/retry'
 import { requireRole } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
 import type { ActionResult } from '@/types'
@@ -36,6 +37,7 @@ export async function getParentChildren() {
 export async function getChildDetails(studentId: string) {
   const { db, session } = await getParentDb()
 
+  return withRetry(async () => {
   // Vérifier que l'élève appartient bien à ce parent
   const check: any[] = await db.$queryRaw`
     SELECT ps.id FROM parent_students ps
@@ -126,6 +128,7 @@ export async function getChildDetails(studentId: string) {
     payments,
     attendance,
   }
+  })
 }
 
 export async function getChildAbsencesForJustification(studentId: string) {

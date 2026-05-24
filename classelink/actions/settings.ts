@@ -18,8 +18,8 @@ export async function getSchoolSettings(): Promise<any> {
 
   const rows: any[] = await db.$queryRaw`
     SELECT
-      id, school_name, address, phone, email, website,
-      principal_name, school_type, motto, created_at
+      id, school_name, address, city, phone, email,
+      director_name AS principal_name, logo_url, updated_at
     FROM school_settings
     LIMIT 1
   `
@@ -51,12 +51,10 @@ export async function saveSchoolSettings(
 
   const school_name    = (formData.get('school_name')    as string)?.trim() || null
   const address        = (formData.get('address')        as string)?.trim() || null
+  const city           = (formData.get('city')           as string)?.trim() || null
   const phone          = (formData.get('phone')          as string)?.trim() || null
   const email          = (formData.get('email')          as string)?.trim() || null
-  const website        = (formData.get('website')        as string)?.trim() || null
-  const principal_name = (formData.get('principal_name') as string)?.trim() || null
-  const school_type    = (formData.get('school_type')    as string)?.trim() || null
-  const motto          = (formData.get('motto')          as string)?.trim() || null
+  const director_name  = (formData.get('principal_name') as string)?.trim() || null
 
   if (!school_name) {
     return { success: false, error: 'Le nom de l\'établissement est requis.' }
@@ -72,23 +70,20 @@ export async function saveSchoolSettings(
       await db.$executeRaw`
         UPDATE school_settings
         SET
-          school_name    = ${school_name},
-          address        = ${address},
-          phone          = ${phone},
-          email          = ${email},
-          website        = ${website},
-          principal_name = ${principal_name},
-          school_type    = ${school_type},
-          motto          = ${motto}
+          school_name   = ${school_name},
+          address       = ${address},
+          city          = ${city},
+          phone         = ${phone},
+          email         = ${email},
+          director_name = ${director_name}
         WHERE id = ${existing[0].id}
       `
     } else {
       await db.$executeRaw`
         INSERT INTO school_settings
-          (school_name, address, phone, email, website, principal_name, school_type, motto)
+          (school_name, address, city, phone, email, director_name)
         VALUES
-          (${school_name}, ${address}, ${phone}, ${email}, ${website},
-           ${principal_name}, ${school_type}, ${motto})
+          (${school_name}, ${address}, ${city}, ${phone}, ${email}, ${director_name})
       `
     }
 

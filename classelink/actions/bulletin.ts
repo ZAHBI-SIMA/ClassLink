@@ -1,6 +1,7 @@
 'use server'
 
 import { getTenantPrisma } from '@/lib/db/tenant'
+import { withRetry } from '@/lib/db/retry'
 import { requireRole } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
 import { toActionError } from '@/lib/errors'
@@ -24,6 +25,16 @@ export async function getBulletinData(
   termId: string
 ): Promise<ActionResult<any>> {
   try {
+    return await withRetry(() => fetchBulletinData(studentId, termId))
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
+async function fetchBulletinData(
+  studentId: string,
+  termId: string
+): Promise<ActionResult<any>> {
     const session = await requireRole('ADMIN', 'CENSOR', 'PARENT', 'TEACHER', 'STUDENT')
     const db = getTenantPrisma(session.user.schemaName) as any
 
@@ -69,7 +80,8 @@ export async function getBulletinData(
 
     // Paramètres école
     const settingRows: any[] = await db.$queryRaw`
-      SELECT school_name, principal_name FROM school_settings LIMIT 1
+      SELECT school_name, director_name AS principal_name, address, city, phone, email, logo_url
+      FROM school_settings LIMIT 1
     `
     const school = settingRows[0] ?? { school_name: null, principal_name: null }
 
@@ -222,9 +234,6 @@ export async function getBulletinData(
         council,
       },
     }
-  } catch (error) {
-    return { success: false, error: toActionError(error) }
-  }
 }
 
 // ─── Liste des bulletins d'une classe ────────────────────────────────────────
@@ -278,23 +287,24 @@ export async function getTermsAndClasses(): Promise<{
   terms: any[]
   classes: any[]
 }> {
-  const { db } = await getDb()
+  const { db } = await getAnyRoleDb()
 
-  const [terms, classes] = await Promise.all([
-    db.$queryRaw`
-      SELECT t.id, t.name, t.term_order, ay.id AS academic_year_id
-      FROM terms t
-      JOIN academic_years ay ON ay.id = t.academic_year_id AND ay.is_current = TRUE
-      ORDER BY t.term_order
-    ` as Promise<any[]>,
-    db.$queryRaw`
-      SELECT c.id, c.name, l.name AS level_name, ay.name AS academic_year_name
-      FROM classes c
-      JOIN levels l        ON l.id = c.level_id
-      JOIN academic_years ay ON ay.id = c.academic_year_id AND ay.is_current = TRUE
-      ORDER BY c.name
-    ` as Promise<any[]>,
-  ])
-
-  return { terms, classes }
+  return withRetry(async () => {
+    const [terms, classes] = await Promise.all([
+      db.$queryRaw`
+        SELECT t.id, t.name, t.term_order, ay.id AS academic_year_id
+        FROM terms t
+        JOIN academic_years ay ON ay.id = t.academic_year_id AND ay.is_current = TRUE
+        ORDER BY t.term_order
+      ` as Promise<any[]>,
+      db.$queryRaw`
+        SELECT c.id, c.name, l.name AS level_name, ay.name AS academic_year_name
+        FROM classes c
+        JOIN levels l        ON l.id = c.level_id
+        JOIN academic_years ay ON ay.id = c.academic_year_id AND ay.is_current = TRUE
+        ORDER BY c.name
+      ` as Promise<any[]>,
+    ])
+    return { terms, classes }
+  })
 }
