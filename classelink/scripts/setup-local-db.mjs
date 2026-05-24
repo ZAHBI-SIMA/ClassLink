@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS schools (
   phone              TEXT,
   email              TEXT,
   "adminEmail"       TEXT NOT NULL,
-  status             TEXT DEFAULT 'TRIAL' CHECK (status IN ('TRIAL','ACTIVE','SUSPENDED','CANCELLED')),
+  status             TEXT DEFAULT 'TRIAL' CHECK (status IN ('PENDING','TRIAL','ACTIVE','SUSPENDED','CANCELLED')),
   "planId"           TEXT NOT NULL REFERENCES plans(id),
   "trialEndsAt"      TIMESTAMPTZ,
   "schemaName"       TEXT UNIQUE NOT NULL,

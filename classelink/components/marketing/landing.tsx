@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface Props {
   isAuthenticated: boolean
@@ -103,6 +104,7 @@ const STEPS = [
 
 const PLANS = [
   {
+    slug: 'gratuit',
     name: 'Gratuit',
     price: '0',
     period: '/mois',
@@ -112,6 +114,7 @@ const PLANS = [
     highlight: false,
   },
   {
+    slug: 'starter',
     name: 'Starter',
     price: '15 000',
     period: 'FCFA/mois',
@@ -121,6 +124,7 @@ const PLANS = [
     highlight: false,
   },
   {
+    slug: 'pro',
     name: 'Pro',
     price: '40 000',
     period: 'FCFA/mois',
@@ -130,29 +134,27 @@ const PLANS = [
     highlight: true,
   },
   {
+    slug: 'entreprise',
     name: 'Entreprise',
     price: '100 000',
     period: 'FCFA/mois',
     desc: 'Pour les grands groupes scolaires.',
     features: ['Élèves illimités', 'Tout le plan Pro', 'Support prioritaire', 'Accompagnement dédié'],
-    cta: 'Nous contacter',
+    cta: 'Choisir Entreprise',
     highlight: false,
   },
 ]
 
-function Logo({ className = '' }: { className?: string }) {
+function Logo({ className = 'h-10 w-auto' }: { className?: string }) {
   return (
-    <span className={`flex items-center gap-2 ${className}`}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-sm">
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M12 14l9-5-9-5-9 5 9 5z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-        </svg>
-      </span>
-      <span className="text-lg font-bold tracking-tight text-gray-900">ClasseLink</span>
-    </span>
+    <Image
+      src="/logo.png"
+      alt="ClassLink"
+      width={677}
+      height={369}
+      priority
+      className={className}
+    />
   )
 }
 
@@ -161,6 +163,9 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
 
   const primaryHref = isAuthenticated ? dashboardHref : '/login'
   const primaryLabel = isAuthenticated ? 'Accéder à mon espace' : 'Se connecter'
+  // CTA « démarrage » → inscription d'un établissement
+  const startHref = isAuthenticated ? dashboardHref : '/register'
+  const startLabel = isAuthenticated ? 'Accéder à mon espace' : 'Créer mon établissement'
 
   return (
     <div className="min-h-screen scroll-smooth bg-white text-gray-900">
@@ -242,13 +247,13 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
           </p>
 
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href={primaryHref}
+            <Link href={startHref}
               className="w-full rounded-xl bg-blue-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 sm:w-auto">
-              {primaryLabel}
+              {startLabel}
             </Link>
-            <a href="#fonctionnalites"
+            <a href="#tarifs"
               className="w-full rounded-xl border border-gray-300 bg-white px-7 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:w-auto">
-              Découvrir les fonctionnalités
+              Voir les forfaits
             </a>
           </div>
 
@@ -404,7 +409,7 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
                     </li>
                   ))}
                 </ul>
-                <Link href={primaryHref}
+                <Link href={isAuthenticated ? dashboardHref : `/register?plan=${p.slug}`}
                   className={`mt-7 rounded-xl px-4 py-2.5 text-center text-sm font-semibold transition ${
                     p.highlight
                       ? 'bg-blue-600 text-white hover:bg-blue-700'
@@ -434,9 +439,9 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
             </p>
 
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link href={primaryHref}
+              <Link href={startHref}
                 className="w-full rounded-xl bg-white px-7 py-3 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 sm:w-auto">
-                {primaryLabel}
+                {startLabel}
               </Link>
               <a href="mailto:support@classelink.ci"
                 className="w-full rounded-xl border border-white/40 px-7 py-3 text-sm font-semibold text-white transition hover:bg-white/10 sm:w-auto">

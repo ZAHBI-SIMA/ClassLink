@@ -131,7 +131,13 @@ export function LoginForm({ error, callbackUrl }: Props) {
         </button>
       </form>
 
-      <p className="text-center text-xs text-gray-400 mt-6">
+      <p className="text-center text-sm text-gray-500 mt-6">
+        Pas encore d&apos;établissement ?{' '}
+        <Link href="/register" className="text-blue-600 font-medium hover:underline">
+          Créer un compte
+        </Link>
+      </p>
+      <p className="text-center text-xs text-gray-400 mt-2">
         Problème de connexion ?{' '}
         <a href="mailto:support@classelink.ci" className="text-blue-600 hover:underline">
           Contacter le support

@@ -5,6 +5,7 @@ import { compare } from 'bcryptjs'
 import { z } from 'zod'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { publicPrisma } from '@/lib/db/public'
+import { verifyAutoLoginToken } from '@/lib/auth/auto-login'
 import type { Role } from '@/types'
 // Sentinel pour identifier le Super Admin (pas de schéma tenant)
 export const SUPER_ADMIN_SCHEMA = '__super_admin__'
@@ -21,13 +22,51 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Mot de passe', type: 'password' },
+        autoLoginToken: { label: 'Token', type: 'text' },
       },
       async authorize(credentials) {
+        const db = publicPrisma as any
+
+        // ── 0. Connexion automatique par jeton (après paiement) ────────────
+        const autoToken = (credentials as any)?.autoLoginToken as string | undefined
+        if (autoToken) {
+          const tokenEmail = await verifyAutoLoginToken(autoToken)
+          if (!tokenEmail) return null
+          try {
+            const schools = await db.school.findMany({
+              where: { status: { in: ['TRIAL', 'ACTIVE'] } },
+              select: { schemaName: true },
+            })
+            for (const school of schools) {
+              try {
+                const tenantDb = getTenantPrisma(school.schemaName) as any
+                const rows: any[] = await tenantDb.$queryRaw`
+                  SELECT id, email, first_name, last_name, role, is_active, avatar_url, two_factor_enabled
+                  FROM users WHERE email = ${tokenEmail} LIMIT 1
+                `
+                const user = rows[0]
+                if (!user || !user.is_active) continue
+                return {
+                  id: user.id,
+                  email: user.email,
+                  name: `${user.first_name} ${user.last_name}`,
+                  image: user.avatar_url ?? undefined,
+                  role: user.role as Role,
+                  schemaName: school.schemaName,
+                  firstName: user.first_name,
+                  lastName: user.last_name,
+                  twoFactorEnabled: user.two_factor_enabled ?? false,
+                }
+              } catch { continue }
+            }
+          } catch { /* aucun tenant */ }
+          return null
+        }
+
         const parsed = credentialsSchema.safeParse(credentials)
         if (!parsed.success) return null
 
         const { email, password } = parsed.data
-        const db = publicPrisma as any
 
         // ── 1. Chercher dans Super Admin ───────────────────────────────────
         try {

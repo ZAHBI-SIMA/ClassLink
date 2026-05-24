@@ -106,7 +106,9 @@ export default auth(function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const response = NextResponse.next()
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', pathname)
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
   response.headers.set('x-hostname', hostname)
   return response
 })

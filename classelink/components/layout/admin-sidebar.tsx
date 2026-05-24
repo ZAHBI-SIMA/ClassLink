@@ -2,6 +2,7 @@
 
 import { SidebarLink } from './sidebar-link'
 import { logoutAction } from '@/actions/auth'
+import { featureForPath, hasFeature } from '@/lib/plan/features'
 
 type Role = 'ADMIN' | 'CENSOR' | 'ACCOUNTANT' | 'TEACHER'
 
@@ -341,12 +342,24 @@ const ROLE_LABELS: Record<Role, string> = {
   TEACHER: 'Enseignant',
 }
 
-export function AdminSidebar({ schoolName, role = 'ADMIN' }: { schoolName?: string; role?: string }) {
+export function AdminSidebar({
+  schoolName,
+  role = 'ADMIN',
+  planSlug = null,
+}: {
+  schoolName?: string
+  role?: string
+  planSlug?: string | null
+}) {
   const userRole = (role as Role) || 'ADMIN'
 
   const visibleNav = NAV.filter(item => {
-    if (!item.roles) return true // accessible à tous
-    return item.roles.includes(userRole)
+    // Filtre par rôle
+    if (item.roles && !item.roles.includes(userRole)) return false
+    // Filtre par forfait
+    const feat = featureForPath(item.href)
+    if (feat && !hasFeature(planSlug, feat)) return false
+    return true
   })
 
   return (

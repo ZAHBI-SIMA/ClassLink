@@ -5,7 +5,7 @@ import { withRetry } from '@/lib/db/retry'
 import { requireRole } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
 import type { ActionResult } from '@/types'
-import { initiatePayment } from '@/lib/payments/cinetpay'
+import { initiatePayment } from '@/lib/payments/geniuspay'
 
 async function getParentDb() {
   const session = await requireRole('PARENT')
@@ -455,14 +455,14 @@ export async function initiateOnlinePayment(
       customerName: session.user.name ?? session.user.email ?? '',
       customerEmail: session.user.email ?? '',
       returnUrl: `${baseUrl}/parent/payment/return?paymentId=${paymentId}&studentId=${studentId}`,
-      notifyUrl: `${baseUrl}/api/webhooks/cinetpay`,
+      notifyUrl: `${baseUrl}/api/webhooks/geniuspay`,
       metadata: { paymentId, schemaName, studentId },
     })
 
     // Stocker le transactionId comme provider_ref
     await db.$executeRaw`
       UPDATE payments
-      SET provider = 'CINETPAY', provider_ref = ${init.transactionId}
+      SET provider = 'GENIUSPAY', provider_ref = ${init.transactionId}
       WHERE id = ${paymentId}
     `
 
