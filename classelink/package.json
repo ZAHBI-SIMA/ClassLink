@@ -10,7 +10,8 @@
     "seed": "tsx prisma/seed.ts",
     "db:setup": "node scripts/setup-local-db.mjs",
     "db:push": "prisma db push",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

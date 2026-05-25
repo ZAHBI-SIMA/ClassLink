@@ -145,7 +145,7 @@ const PLANS = [
   },
 ]
 
-function Logo({ className = 'h-10 w-auto' }: { className?: string }) {
+function Logo({ className = 'h-[100px] w-auto' }: { className?: string }) {
   return (
     <Image
       src="/logo.png"
@@ -205,22 +205,20 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
         </nav>
 
         {/* Menu mobile déroulant */}
-        {menuOpen && (
-          <div className="border-t border-gray-100 bg-white px-5 py-4 md:hidden">
-            <div className="flex flex-col gap-1">
-              {NAV_LINKS.map(l => (
-                <a key={l.href} href={l.href} onClick={() => setMenuOpen(false)}
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  {l.label}
-                </a>
-              ))}
-              <Link href={primaryHref}
-                className="mt-2 rounded-xl bg-blue-600 px-4 py-2.5 text-center text-sm font-semibold text-white">
-                {primaryLabel}
-              </Link>
-            </div>
+        <div className={`overflow-hidden border-t border-gray-100 bg-white transition-all duration-300 md:hidden ${menuOpen ? 'max-h-96 px-5 py-4' : 'max-h-0'}`}>
+          <div className="flex flex-col gap-1">
+            {NAV_LINKS.map(l => (
+              <a key={l.href} href={l.href} onClick={() => setMenuOpen(false)}
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                {l.label}
+              </a>
+            ))}
+            <Link href={primaryHref}
+              className="mt-2 rounded-xl bg-blue-600 px-4 py-2.5 text-center text-sm font-semibold text-white">
+              {primaryLabel}
+            </Link>
           </div>
-        )}
+        </div>
       </header>
 
       {/* ══════════════ 1. HERO ══════════════ */}
@@ -288,8 +286,8 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map(f => (
               <div key={f.title}
-                className="group rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-blue-100 hover:shadow-lg">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${f.color}`}>
+                className="group rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm transition hover:-translate-y-1 hover:border-blue-100 hover:shadow-lg">
+                <div className={`mx-auto flex h-12 w-12 items-center justify-center rounded-xl ${f.color}`}>
                   <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={f.icon} />
                   </svg>
@@ -317,14 +315,14 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
 
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {ROLES.map(r => (
-              <div key={r.title} className="flex flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+              <div key={r.title} className="flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
                 <div className={`mb-4 inline-flex w-fit rounded-xl bg-gradient-to-br ${r.accent} px-3 py-1 text-xs font-semibold text-white`}>
                   {r.title}
                 </div>
                 <p className="text-sm leading-relaxed text-gray-600">{r.desc}</p>
                 <ul className="mt-4 space-y-2">
                   {r.points.map(p => (
-                    <li key={p} className="flex items-center gap-2 text-sm text-gray-700">
+                    <li key={p} className="flex items-center justify-center gap-2 text-sm text-gray-700">
                       <svg className="h-4 w-4 flex-shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
@@ -353,7 +351,7 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
 
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {STEPS.map((s, i) => (
-              <div key={s.n} className="relative rounded-2xl border border-gray-100 bg-gradient-to-b from-blue-50/40 to-white p-7">
+              <div key={s.n} className="relative rounded-2xl border border-gray-100 bg-gradient-to-b from-blue-50/40 to-white p-7 text-center">
                 <span className="text-4xl font-extrabold text-blue-200">{s.n}</span>
                 <h3 className="mt-3 text-lg font-semibold text-gray-900">{s.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{s.desc}</p>
@@ -385,7 +383,7 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {PLANS.map(p => (
               <div key={p.name}
-                className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm ${
+                className={`relative flex flex-col rounded-2xl border bg-white p-6 text-center shadow-sm ${
                   p.highlight ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-100'
                 }`}>
                 {p.highlight && (
@@ -395,13 +393,13 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
                 )}
                 <h3 className="text-base font-semibold text-gray-900">{p.name}</h3>
                 <p className="mt-1 text-xs text-gray-500">{p.desc}</p>
-                <div className="mt-5 flex items-baseline gap-1">
+                <div className="mt-5 flex items-baseline justify-center gap-1">
                   <span className="text-3xl font-extrabold text-gray-900">{p.price}</span>
                   <span className="text-xs font-medium text-gray-500">{p.period}</span>
                 </div>
                 <ul className="mt-6 flex-1 space-y-3">
                   {p.features.map(f => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-gray-600">
+                    <li key={f} className="flex items-start justify-center gap-2 text-sm text-gray-600">
                       <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
@@ -455,7 +453,7 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
       {/* ══════════════ FOOTER ══════════════ */}
       <footer className="border-t border-gray-100 bg-gray-50">
         <div className="mx-auto max-w-6xl px-5 py-12">
-          <div className="flex flex-col items-start justify-between gap-8 md:flex-row">
+          <div className="flex flex-col items-center justify-between gap-8 text-center md:flex-row md:items-start md:text-left">
             <div className="max-w-xs">
               <Logo />
               <p className="mt-3 text-sm text-gray-500">
