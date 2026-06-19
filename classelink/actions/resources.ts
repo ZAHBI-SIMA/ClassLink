@@ -1,5 +1,6 @@
 'use server'
 
+import { Prisma } from '@prisma/client'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { requireRole } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
@@ -34,7 +35,7 @@ async function getAdminOrTeacherDb() {
 export async function getResources(type?: string): Promise<any[]> {
   const { db } = await getAnyRoleDb()
 
-  const rows: any[] = await db.$queryRaw`
+  const BASE_SELECT = Prisma.sql`
     SELECT
       r.id, r.name, r.type, r.capacity, r.location, r.description, r.created_at,
       COUNT(rb.id) FILTER (
@@ -42,12 +43,13 @@ export async function getResources(type?: string): Promise<any[]> {
           AND rb.booking_date = CURRENT_DATE
       )::int AS active_bookings_today
     FROM resources r
-    LEFT JOIN resource_bookings rb ON rb.resource_id = r.id
-    WHERE (${type ?? null} IS NULL OR r.type = ${type ?? null})
-    GROUP BY r.id
-    ORDER BY r.name
-  `
-  return rows
+    LEFT JOIN resource_bookings rb ON rb.resource_id = r.id`
+
+  const whereClause = type
+    ? Prisma.sql`WHERE r.type = ${type}`
+    : Prisma.empty
+
+  return db.$queryRaw`${BASE_SELECT} ${whereClause} GROUP BY r.id ORDER BY r.name`
 }
 
 // ─── Créer une ressource ──────────────────────────────────────────────────────
@@ -147,7 +149,14 @@ export async function getResourceBookings(
 ): Promise<any[]> {
   const { db } = await getAnyRoleDb()
 
-  const rows: any[] = await db.$queryRaw`
+  const resourceFilter = resourceId
+    ? Prisma.sql`AND rb.resource_id = ${resourceId}::uuid`
+    : Prisma.empty
+  const dateFilter = date
+    ? Prisma.sql`AND rb.booking_date = ${date}::date`
+    : Prisma.empty
+
+  return db.$queryRaw`
     SELECT
       rb.id, rb.title, rb.booking_date, rb.start_time, rb.end_time,
       rb.purpose, rb.status, rb.created_at,
@@ -157,11 +166,9 @@ export async function getResourceBookings(
     FROM resource_bookings rb
     JOIN resources r ON r.id = rb.resource_id
     JOIN users u     ON u.id = rb.booked_by
-    WHERE (${resourceId ?? null}::uuid IS NULL OR rb.resource_id = ${resourceId ?? null}::uuid)
-      AND (${date ?? null} IS NULL OR rb.booking_date = ${date ?? null}::date)
+    WHERE 1=1 ${resourceFilter} ${dateFilter}
     ORDER BY rb.booking_date, rb.start_time
   `
-  return rows
 }
 
 // ─── Créer une réservation ────────────────────────────────────────────────────

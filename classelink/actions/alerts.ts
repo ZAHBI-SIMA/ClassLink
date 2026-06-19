@@ -17,7 +17,7 @@ export async function getAlertRules(): Promise<any[]> {
   const { db } = await getAdminDb()
 
   const rows: any[] = await db.$queryRaw`
-    SELECT id, type, threshold, notify_sms, notify_email, is_active, updated_at
+    SELECT id, type, threshold, notify_sms, notify_email, is_active, created_at
     FROM alert_rules
     ORDER BY type
   `
@@ -43,14 +43,13 @@ export async function saveAlertRule(
 
   try {
     await db.$executeRaw`
-      INSERT INTO alert_rules (type, threshold, notify_sms, notify_email, is_active, updated_at)
-      VALUES (${type}, ${threshold}, ${notifySms}, ${notifyEmail}, ${isActive}, NOW())
+      INSERT INTO alert_rules (type, threshold, notify_sms, notify_email, is_active)
+      VALUES (${type}, ${threshold}, ${notifySms}, ${notifyEmail}, ${isActive})
       ON CONFLICT (type) DO UPDATE
         SET threshold    = EXCLUDED.threshold,
             notify_sms   = EXCLUDED.notify_sms,
-            notify_email  = EXCLUDED.notify_email,
-            is_active    = EXCLUDED.is_active,
-            updated_at   = NOW()
+            notify_email = EXCLUDED.notify_email,
+            is_active    = EXCLUDED.is_active
     `
     revalidatePath('/admin/alerts')
     return { success: true }
@@ -65,11 +64,12 @@ export async function getAlertLogs(limit = 50): Promise<any[]> {
 
   const rows: any[] = await db.$queryRaw`
     SELECT
-      al.id, al.rule_type, al.message, al.triggered_at,
+      al.id, ar.type AS rule_type, al.message, al.triggered_at,
       u.first_name || ' ' || u.last_name AS student_name
     FROM alert_logs al
-    LEFT JOIN students s ON s.id = al.student_id
-    LEFT JOIN users u    ON u.id = s.user_id
+    JOIN alert_rules ar   ON ar.id = al.rule_id
+    LEFT JOIN students s  ON s.id  = al.student_id
+    LEFT JOIN users u     ON u.id  = s.user_id
     ORDER BY al.triggered_at DESC
     LIMIT ${limit}
   `
@@ -85,7 +85,7 @@ export async function runAlertCheck(): Promise<ActionResult<{ triggered: number 
   try {
     // Récupérer les règles actives
     const rules: any[] = await db.$queryRaw`
-      SELECT type, threshold, notify_sms, notify_email
+      SELECT id, type, threshold, notify_sms, notify_email
       FROM alert_rules
       WHERE is_active = true
     `
@@ -112,18 +112,17 @@ export async function runAlertCheck(): Promise<ActionResult<{ triggered: number 
           const existing: any[] = await db.$queryRaw`
             SELECT id FROM alert_logs
             WHERE student_id = ${student.student_id}
-              AND rule_type = 'ABSENCE_THRESHOLD'
+              AND rule_id = ${rule.id}
               AND triggered_at::date = CURRENT_DATE
             LIMIT 1
           `
           if (!existing[0]) {
             await db.$executeRaw`
-              INSERT INTO alert_logs (student_id, rule_type, message, triggered_at)
+              INSERT INTO alert_logs (student_id, rule_id, message)
               VALUES (
                 ${student.student_id},
-                'ABSENCE_THRESHOLD',
-                ${`${student.student_name} — ${student.absence_count} absences non justifiées ce trimestre (seuil: ${rule.threshold})`},
-                NOW()
+                ${rule.id},
+                ${`${student.student_name} — ${student.absence_count} absences non justifiées ce trimestre (seuil: ${rule.threshold})`}
               )
             `
             triggered++
@@ -150,18 +149,17 @@ export async function runAlertCheck(): Promise<ActionResult<{ triggered: number 
           const existing: any[] = await db.$queryRaw`
             SELECT id FROM alert_logs
             WHERE student_id = ${payment.student_id}
-              AND rule_type = 'PAYMENT_OVERDUE'
+              AND rule_id = ${rule.id}
               AND triggered_at::date = CURRENT_DATE
             LIMIT 1
           `
           if (!existing[0]) {
             await db.$executeRaw`
-              INSERT INTO alert_logs (student_id, rule_type, message, triggered_at)
+              INSERT INTO alert_logs (student_id, rule_id, message)
               VALUES (
                 ${payment.student_id},
-                'PAYMENT_OVERDUE',
-                ${`${payment.student_name} — paiement en retard de ${payment.days_overdue} jours (montant: ${payment.amount})`},
-                NOW()
+                ${rule.id},
+                ${`${payment.student_name} — paiement en retard de ${payment.days_overdue} jours (montant: ${payment.amount})`}
               )
             `
             triggered++
@@ -197,18 +195,17 @@ export async function runAlertCheck(): Promise<ActionResult<{ triggered: number 
           const existing: any[] = await db.$queryRaw`
             SELECT id FROM alert_logs
             WHERE student_id = ${drop.student_id}
-              AND rule_type = 'GRADE_DROP'
+              AND rule_id = ${rule.id}
               AND triggered_at::date = CURRENT_DATE
             LIMIT 1
           `
           if (!existing[0]) {
             await db.$executeRaw`
-              INSERT INTO alert_logs (student_id, rule_type, message, triggered_at)
+              INSERT INTO alert_logs (student_id, rule_id, message)
               VALUES (
                 ${drop.student_id},
-                'GRADE_DROP',
-                ${`${drop.student_name} — chute de ${drop.drop_points} points (T1: ${drop.avg_t1} → T2: ${drop.avg_t2})`},
-                NOW()
+                ${rule.id},
+                ${`${drop.student_name} — chute de ${drop.drop_points} points (T1: ${drop.avg_t1} → T2: ${drop.avg_t2})`}
               )
             `
             triggered++
@@ -235,18 +232,17 @@ export async function runAlertCheck(): Promise<ActionResult<{ triggered: number 
           const existing: any[] = await db.$queryRaw`
             SELECT id FROM alert_logs
             WHERE student_id = ${student.student_id}
-              AND rule_type = 'LATE_THRESHOLD'
+              AND rule_id = ${rule.id}
               AND triggered_at::date = CURRENT_DATE
             LIMIT 1
           `
           if (!existing[0]) {
             await db.$executeRaw`
-              INSERT INTO alert_logs (student_id, rule_type, message, triggered_at)
+              INSERT INTO alert_logs (student_id, rule_id, message)
               VALUES (
                 ${student.student_id},
-                'LATE_THRESHOLD',
-                ${`${student.student_name} — ${student.late_count} retards ce trimestre (seuil: ${rule.threshold})`},
-                NOW()
+                ${rule.id},
+                ${`${student.student_name} — ${student.late_count} retards ce trimestre (seuil: ${rule.threshold})`}
               )
             `
             triggered++

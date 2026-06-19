@@ -305,6 +305,31 @@ export async function extendTrial(schoolId: string, days: number): Promise<void>
   }
 }
 
+// ─── Supprimer un établissement ───────────────────────────────────────────────
+export async function deleteSchool(schoolId: string): Promise<ActionResult> {
+  await requireRole('SUPER_ADMIN')
+  try {
+    const school = await db.school.findUnique({
+      where: { id: schoolId },
+      include: { subscription: true },
+    })
+    if (!school) return { success: false, error: 'Établissement introuvable.' }
+
+    if (school.subscription) {
+      await db.globalPayment.deleteMany({ where: { subscriptionId: school.subscription.id } })
+      await db.subscription.delete({ where: { id: school.subscription.id } })
+    }
+    await db.globalAuditLog.deleteMany({ where: { schoolId } })
+    await dropTenantSchema(school.schemaName)
+    await db.school.delete({ where: { id: schoolId } })
+
+    revalidatePath('/super-admin/schools')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
 // ─── Plans tarifaires ─────────────────────────────────────────────────────────
 export async function getPlans() {
   await requireRole('SUPER_ADMIN')
@@ -312,13 +337,14 @@ export async function getPlans() {
 }
 
 const planSchema = z.object({
-  name:          z.string().min(2, 'Nom requis (min 2 caractères)'),
-  slug:          z.string().min(2).regex(/^[a-z0-9-]+$/, 'Slug invalide (minuscules, chiffres, tirets)'),
-  priceMonthly:  z.coerce.number().min(0, 'Prix mensuel invalide'),
-  priceYearly:   z.coerce.number().min(0, 'Prix annuel invalide'),
-  maxStudents:   z.coerce.number().min(1, 'Nombre d\'élèves requis'),
-  maxStorageMb:  z.coerce.number().min(100, 'Stockage minimum 100 Mo'),
-  features:      z.string().optional(),
+  name:            z.string().min(2, 'Nom requis (min 2 caractères)'),
+  slug:            z.string().min(2).regex(/^[a-z0-9-]+$/, 'Slug invalide (minuscules, chiffres, tirets)'),
+  priceMonthly:    z.coerce.number().min(0, 'Prix mensuel invalide'),
+  priceYearly:     z.coerce.number().min(0, 'Prix annuel invalide'),
+  maxStudents:     z.coerce.number().min(1, 'Nombre d\'élèves requis'),
+  maxStorageMb:    z.coerce.number().min(100, 'Stockage minimum 100 Mo'),
+  discountPercent: z.coerce.number().min(0).max(100).default(0),
+  features:        z.string().optional(),
 })
 
 export async function createPlan(

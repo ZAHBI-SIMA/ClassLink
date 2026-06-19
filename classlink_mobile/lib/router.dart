@@ -1,0 +1,93 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/screens/login_screen.dart';
+import 'features/dashboard/dashboard_screen.dart';
+import 'features/grades/screens/grades_screen.dart';
+import 'features/schedule/schedule_screen.dart';
+import 'features/attendance/attendance_screen.dart';
+import 'features/announcements/announcements_screen.dart';
+import 'features/cafeteria/cafeteria_screen.dart';
+import 'features/messages/messages_screen.dart';
+import 'features/payments/payments_screen.dart';
+import 'features/bulletins/bulletins_screen.dart';
+import 'features/bulletins/bulletin_pdf_screen.dart';
+import 'features/parent/screens/children_screen.dart';
+import 'features/parent/screens/child_detail_screen.dart';
+
+final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authProvider);
+
+  return GoRouter(
+    initialLocation: '/',
+    redirect: (context, state) {
+      final isLoggedIn = authState.isAuthenticated;
+      final isOnLogin  = state.matchedLocation == '/login';
+      if (!isLoggedIn && !isOnLogin) return '/login';
+      if (isLoggedIn  &&  isOnLogin) return '/';
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/login',         builder: (context, state) => const LoginScreen()),
+      GoRoute(path: '/',              builder: (context, state) => const DashboardScreen()),
+      GoRoute(path: '/grades',        builder: (context, state) => const GradesScreen()),
+      GoRoute(path: '/schedule',      builder: (context, state) => const ScheduleScreen()),
+      GoRoute(path: '/attendance',    builder: (context, state) => const AttendanceScreen()),
+      GoRoute(path: '/announcements', builder: (context, state) => const AnnouncementsScreen()),
+      GoRoute(path: '/cafeteria',     builder: (context, state) => const CafeteriaScreen()),
+      GoRoute(path: '/messages',      builder: (context, state) => const MessagesScreen()),
+      GoRoute(path: '/payments',      builder: (context, state) => const PaymentsScreen()),
+      GoRoute(path: '/bulletins',     builder: (context, state) => const BulletinsScreen()),
+      GoRoute(
+        path: '/bulletins/:termId',
+        builder: (context, state) => BulletinPdfScreen(
+          termId: state.pathParameters['termId']!,
+        ),
+      ),
+
+      // Espace parent
+      GoRoute(path: '/parent/children', builder: (context, state) => const ChildrenScreen()),
+      GoRoute(
+        path: '/parent/child/:studentId',
+        builder: (context, state) => ChildDetailScreen(
+          studentId: state.pathParameters['studentId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/parent/child/:studentId/grades',
+        builder: (context, state) => const GradesScreen(),
+      ),
+      GoRoute(
+        path: '/parent/child/:studentId/schedule',
+        builder: (context, state) => ScheduleScreen(
+          studentId: state.pathParameters['studentId'],
+        ),
+      ),
+      GoRoute(
+        path: '/parent/child/:studentId/attendance',
+        builder: (context, state) => AttendanceScreen(
+          studentId: state.pathParameters['studentId'],
+        ),
+      ),
+      GoRoute(
+        path: '/parent/child/:studentId/payments',
+        builder: (context, state) => PaymentsScreen(
+          studentId: state.pathParameters['studentId'],
+        ),
+      ),
+      GoRoute(
+        path: '/parent/child/:studentId/bulletins',
+        builder: (context, state) => BulletinsScreen(
+          studentId: state.pathParameters['studentId'],
+        ),
+      ),
+      GoRoute(
+        path: '/parent/child/:studentId/bulletins/:termId',
+        builder: (context, state) => BulletinPdfScreen(
+          termId:    state.pathParameters['termId']!,
+          studentId: state.pathParameters['studentId'],
+        ),
+      ),
+    ],
+  );
+});

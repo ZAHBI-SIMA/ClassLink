@@ -3,6 +3,7 @@ import { getSchoolById, getPlans, toggleSchoolStatus, extendTrial, repairTenantS
 import { StatusBadge } from '@/components/ui/status-badge'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
 import Link from 'next/link'
+import { DeleteSchoolDialog } from './delete-school-dialog'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -84,6 +85,8 @@ export default async function SchoolDetailPage({ params }: Props) {
                 Réparer le schéma
               </button>
             </form>
+
+            <DeleteSchoolDialog schoolId={school.id} schoolName={school.name} />
           </div>
         </div>
       </div>

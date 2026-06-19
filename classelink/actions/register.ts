@@ -142,7 +142,11 @@ export async function initiateSubscriptionPayment(
       return { success: true, data: { redirect: '/login' } }
     }
 
-    const amount = school.plan.priceMonthly as number
+    const basePrice = school.plan.priceMonthly as number
+    const discount  = (school.plan as any).discountPercent ?? 0
+    const amount    = discount > 0
+      ? Math.round(basePrice * (1 - discount / 100))
+      : basePrice
 
     // Forfait gratuit → activation immédiate, sans paiement
     if (amount <= 0) {
@@ -282,11 +286,13 @@ export async function getRegistrationInfo(schoolId: string): Promise<{
     include: { plan: true },
   })
   if (!school) return null
+  const basePrice = school.plan.priceMonthly
+  const discount  = (school.plan as any).discountPercent ?? 0
   return {
     schoolName: school.name,
     status: school.status,
     planName: school.plan.name,
     planSlug: school.plan.slug,
-    amount: school.plan.priceMonthly,
+    amount: discount > 0 ? Math.round(basePrice * (1 - discount / 100)) : basePrice,
   }
 }

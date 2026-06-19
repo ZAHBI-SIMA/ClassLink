@@ -5,15 +5,16 @@ import { createPlan, updatePlan, deletePlan, togglePlanActive } from '@/actions/
 import { formatCurrency } from '@/lib/utils'
 
 type Plan = {
-  id:           string
-  name:         string
-  slug:         string
-  priceMonthly: number
-  priceYearly:  number
-  maxStudents:  number
-  maxStorageMb: number
-  features:     unknown
-  isActive:     boolean
+  id:              string
+  name:            string
+  slug:            string
+  priceMonthly:    number
+  priceYearly:     number
+  maxStudents:     number
+  maxStorageMb:    number
+  features:        unknown
+  isActive:        boolean
+  discountPercent: number
 }
 
 /* ─── helpers ─────────────────────────────────────────────────── */
@@ -100,9 +101,15 @@ function PlanModal({
               <input name="priceYearly" type="number" defaultValue={plan?.priceYearly ?? 0} required min={0}
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
-            <div className="col-span-2">
+            <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Stockage (Mo) *</label>
               <input name="maxStorageMb" type="number" defaultValue={plan?.maxStorageMb ?? 1024} required min={100}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Remise promo (%)</label>
+              <input name="discountPercent" type="number" defaultValue={plan?.discountPercent ?? 0} min={0} max={100}
+                placeholder="0"
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div className="col-span-2">
@@ -232,10 +239,26 @@ export function PlansClient({ plans }: { plans: Plan[] }) {
                   {/* Prix */}
                   <div className="mt-4">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-bold text-gray-900">
-                        {formatCurrency(plan.priceMonthly)}
-                      </span>
-                      <span className="text-xs text-gray-400">/mois</span>
+                      {plan.discountPercent > 0 ? (
+                        <>
+                          <span className="text-2xl font-bold text-gray-900">
+                            {formatCurrency(Math.round(plan.priceMonthly * (1 - plan.discountPercent / 100)))}
+                          </span>
+                          <span className="text-xs text-gray-400 line-through ml-1">
+                            {formatCurrency(plan.priceMonthly)}
+                          </span>
+                          <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full ml-1">
+                            −{plan.discountPercent}%
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-2xl font-bold text-gray-900">
+                            {formatCurrency(plan.priceMonthly)}
+                          </span>
+                          <span className="text-xs text-gray-400">/mois</span>
+                        </>
+                      )}
                     </div>
                     {plan.priceYearly > 0 && (
                       <p className="text-xs text-gray-500 mt-0.5">
@@ -319,7 +342,7 @@ export function PlansClient({ plans }: { plans: Plan[] }) {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {['Plan', 'Mensuel', 'Annuel', 'Étudiants', 'Stockage', 'Fonctionnalités', 'Statut'].map(h => (
+                  {['Plan', 'Mensuel', 'Annuel', 'Remise', 'Étudiants', 'Stockage', 'Fonctionnalités', 'Statut'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -332,6 +355,15 @@ export function PlansClient({ plans }: { plans: Plan[] }) {
                     <td className="px-4 py-3 font-medium text-gray-900">{plan.name}</td>
                     <td className="px-4 py-3 text-gray-700">{formatCurrency(plan.priceMonthly)}</td>
                     <td className="px-4 py-3 text-gray-700">{formatCurrency(plan.priceYearly)}</td>
+                    <td className="px-4 py-3">
+                      {plan.discountPercent > 0 ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                          −{plan.discountPercent}%
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-600">{plan.maxStudents.toLocaleString()}</td>
                     <td className="px-4 py-3 text-gray-600">{storageMbLabel(plan.maxStorageMb)}</td>
                     <td className="px-4 py-3 text-gray-500">{planFeatures(plan.features).length} fonct.</td>

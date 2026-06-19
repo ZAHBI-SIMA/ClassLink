@@ -1,5 +1,6 @@
 'use server'
 
+import { Prisma } from '@prisma/client'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { requireRole } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
@@ -28,21 +29,18 @@ async function getAnyRoleDb() {
 export async function getCafeteriaMenus(weekStart?: string): Promise<any[]> {
   const { db } = await getAnyRoleDb()
 
-  const rows: any[] = await db.$queryRaw`
+  const weekFilter = weekStart
+    ? Prisma.sql`${weekStart}::date`
+    : Prisma.sql`date_trunc('week', NOW())::date`
+
+  return db.$queryRaw`
     SELECT
       cm.id, cm.week_start, cm.day_of_week, cm.meal_type,
       cm.description, cm.price, cm.created_at
     FROM cafeteria_menus cm
-    WHERE cm.week_start = (
-      CASE
-        WHEN ${weekStart ?? null} IS NOT NULL
-          THEN ${weekStart ?? null}::date
-        ELSE date_trunc('week', NOW())::date
-      END
-    )
+    WHERE cm.week_start = ${weekFilter}
     ORDER BY cm.day_of_week, cm.meal_type
   `
-  return rows
 }
 
 // ─── Créer ou mettre à jour un menu ──────────────────────────────────────────
@@ -98,7 +96,7 @@ export async function getCafeteriaSubscriptions(): Promise<any[]> {
 
   const rows: any[] = await db.$queryRaw`
     SELECT
-      cs.id, cs.meal_type, cs.start_date, cs.status, cs.amount,
+      cs.id, cs.meal_type, cs.start_date, cs.status, cs.amount_paid,
       s.id          AS student_id,
       u.first_name, u.last_name,
       c.name        AS class_name,
@@ -132,7 +130,7 @@ export async function subscribeStudent(
 
     const rows: any[] = await db.$queryRaw`
       INSERT INTO cafeteria_subscriptions
-        (student_id, meal_type, start_date, amount, status, academic_year_id)
+        (student_id, meal_type, start_date, amount_paid, status, academic_year_id)
       VALUES
         (${studentId}, ${mealType}, ${new Date(startDate)}, ${amount}, 'ACTIVE', ${academicYearId})
       RETURNING id
@@ -183,7 +181,7 @@ export async function getStudentCafeteriaInfo(
 
     const [subscriptions, menus] = await Promise.all([
       db.$queryRaw`
-        SELECT cs.id, cs.meal_type, cs.start_date, cs.status, cs.amount,
+        SELECT cs.id, cs.meal_type, cs.start_date, cs.status, cs.amount_paid,
                ay.name AS academic_year_name
         FROM cafeteria_subscriptions cs
         JOIN academic_years ay ON ay.id = cs.academic_year_id

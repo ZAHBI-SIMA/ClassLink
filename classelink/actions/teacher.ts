@@ -90,7 +90,7 @@ export async function getStudentsWithGrades(
         '[]'::json
       ) AS grades,
       CASE WHEN COUNT(g.id) > 0
-        THEN ROUND(SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0), 2)
+        THEN (ROUND(SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0), 2))::float8
         ELSE NULL
       END AS average
     FROM enrollments e

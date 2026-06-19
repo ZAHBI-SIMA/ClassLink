@@ -1,6 +1,7 @@
 import { getTeacherClassesWithSubjects, getAtRiskStudents, getStudentProgressData, getTeacherTerms } from '@/actions/teacher'
 import { PageHeader } from '@/components/ui/page-header'
 import { ExportClient } from './export-client'
+import { AtRiskFilter } from './at-risk-filter'
 
 export const metadata = { title: 'Analytiques & Export' }
 
@@ -98,20 +99,7 @@ export default async function AnalyticsPage({ searchParams }: Props) {
         </div>
 
         {/* Class filter */}
-        <form method="GET" className="mb-4 flex items-center gap-3">
-          <select name="classId" defaultValue={classId ?? ''}
-            onChange={(e) => { (e.target.form as HTMLFormElement).submit() }}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">-- Choisir une classe --</option>
-            {classes.map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          <button type="submit"
-            className="px-4 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition">
-            Analyser
-          </button>
-        </form>
+        <AtRiskFilter classId={classId ?? ''} classes={classes} />
 
         {classId && atRiskStudents.length === 0 ? (
           <div className="text-center py-8">

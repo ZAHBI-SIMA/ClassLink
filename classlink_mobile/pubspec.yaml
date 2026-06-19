@@ -1,0 +1,52 @@
+name: classlink_mobile
+description: "Application mobile ClasseLink — Élèves & Parents"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Navigation
+  go_router: ^15.1.2
+
+  # HTTP & API
+  dio: ^5.8.0+1
+
+  # State management
+  flutter_riverpod: ^2.6.1
+
+  # Stockage sécurisé (JWT)
+  flutter_secure_storage: ^9.2.4
+
+  # Cache simple
+  shared_preferences: ^2.5.3
+
+  # Utilitaires
+  intl: ^0.20.2
+
+  # Image / Avatar
+  cached_network_image: ^3.4.1
+
+  # Firebase FCM
+  firebase_core: ^3.13.0
+  firebase_messaging: ^15.2.7
+
+  # Génération et affichage PDF
+  pdf: ^3.11.1
+  printing: ^5.14.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/

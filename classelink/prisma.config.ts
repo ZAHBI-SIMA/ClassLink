@@ -7,6 +7,9 @@ export default defineConfig({
   // @ts-expect-error earlyAccess is a valid Prisma 7 driver-adapter option
   earlyAccess: true,
   schema: path.join(import.meta.dirname, 'prisma/schema.prisma'),
+  datasource: {
+    url: process.env.DATABASE_URL,
+  },
   migrate: {
     async adapter(env: Record<string, string | undefined>) {
       const pool = new Pool({
