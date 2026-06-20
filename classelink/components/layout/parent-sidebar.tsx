@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logoutAction } from '@/actions/auth'
+import { SidebarShell } from './sidebar-shell'
 
 const NAV = [
   {
@@ -80,7 +81,7 @@ const NAV = [
   },
 ]
 
-export function ParentSidebar({ parentName, schoolName }: { parentName: string; schoolName?: string }) {
+export function ParentSidebar({ parentName, schoolName, logoUrl, slogan }: { parentName: string; schoolName?: string; logoUrl?: string | null; slogan?: string | null }) {
   const pathname = usePathname()
 
   // Extraire studentId si on est dans /parent/children/[id]/...
@@ -88,11 +89,16 @@ export function ParentSidebar({ parentName, schoolName }: { parentName: string; 
   const currentStudentId = childMatch?.[1] ?? null
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">
+    <SidebarShell className="w-60 flex-shrink-0 bg-white border-r border-gray-200">
       <div className="px-5 py-4 border-b border-gray-100">
-        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide">Parent</p>
+        {(logoUrl || schoolName) && (
+          <div className="flex items-center gap-2 mb-2">
+            {logoUrl && <img src={logoUrl} alt="" className="w-7 h-7 rounded-lg object-cover flex-shrink-0" />}
+            {schoolName && <span className="text-xs font-bold text-gray-900 truncate">{schoolName}</span>}
+          </div>
+        )}
+        <p className="text-xs font-semibold text-primary uppercase tracking-wide">{slogan || 'Parent'}</p>
         <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">{parentName}</p>
-        {schoolName && <p className="text-xs text-gray-400 truncate">{schoolName}</p>}
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV.map(item => {
@@ -106,7 +112,7 @@ export function ParentSidebar({ parentName, schoolName }: { parentName: string; 
             <div key={item.href}>
               <Link href={hasChildren ? `/parent/children` : item.href}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition
-                  ${active ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+                  ${active ? 'bg-primary/10 text-primary' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
                 {item.icon}
                 <span className="flex-1">{item.label}</span>
                 {hasChildren && (
@@ -119,7 +125,7 @@ export function ParentSidebar({ parentName, schoolName }: { parentName: string; 
 
               {/* Sous-menu enfant actif */}
               {childrenOpen && currentStudentId && (
-                <div className="mt-0.5 ml-3 pl-3 border-l-2 border-purple-100 space-y-0.5">
+                <div className="mt-0.5 ml-3 pl-3 border-l-2 border-primary/20 space-y-0.5">
                   {((item as any).children as any[]).map((sub: any) => {
                     const subHref = `/parent/children/${currentStudentId}${sub.href}`
                     const subActive = sub.href === ''
@@ -128,7 +134,7 @@ export function ParentSidebar({ parentName, schoolName }: { parentName: string; 
                     return (
                       <Link key={sub.href} href={subHref}
                         className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition
-                          ${subActive ? 'bg-purple-50 text-purple-700' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
+                          ${subActive ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
                         {sub.icon}
                         {sub.label}
                       </Link>
@@ -148,6 +154,6 @@ export function ParentSidebar({ parentName, schoolName }: { parentName: string; 
           </button>
         </form>
       </div>
-    </aside>
+    </SidebarShell>
   )
 }

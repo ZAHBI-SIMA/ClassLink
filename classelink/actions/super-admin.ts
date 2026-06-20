@@ -210,7 +210,20 @@ export async function createSchool(
       VALUES (${adminEmail}, ${passwordHash}, ${adminFirstName}, ${adminLastName}, 'ADMIN', TRUE)
     `
 
-    // 5. Log global
+    // 5. Créer l'abonnement initial (statut TRIALING — 30 jours d'essai)
+    const now = new Date()
+    await db.subscription.create({
+      data: {
+        schoolId:           school.id,
+        planId,
+        billing:            'MONTHLY',
+        status:             'TRIALING',
+        currentPeriodStart: now,
+        currentPeriodEnd:   new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+      },
+    })
+
+    // 6. Log global
     await db.globalAuditLog.create({
       data: {
         schoolId: school.id,
@@ -462,6 +475,38 @@ export async function getSubscriptionStats() {
   return { active, pastDue, cancelled, trialing }
 }
 
+export async function backfillMissingSubscriptions(): Promise<ActionResult<{ created: number }>> {
+  await requireRole('SUPER_ADMIN')
+  try {
+    // Récupère toutes les écoles sans abonnement
+    const schools = await db.school.findMany({
+      where: { subscription: null },
+      select: { id: true, planId: true, status: true, createdAt: true },
+    })
+
+    if (schools.length === 0) {
+      return { success: true, data: { created: 0 } }
+    }
+
+    const now = new Date()
+    await db.subscription.createMany({
+      data: schools.map((s: any) => ({
+        schoolId:           s.id,
+        planId:             s.planId,
+        billing:            'MONTHLY',
+        status:             s.status === 'ACTIVE' ? 'ACTIVE' : 'TRIALING',
+        currentPeriodStart: s.createdAt,
+        currentPeriodEnd:   new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+      })),
+    })
+
+    revalidatePath('/super-admin/subscriptions')
+    return { success: true, data: { created: schools.length } }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
 export async function updateSubscription(
   prevState: ActionResult | null,
   formData: FormData
@@ -642,6 +687,45 @@ export async function repairTenantSchema(schoolId: string): Promise<ActionResult
 
     revalidatePath(`/super-admin/schools/${schoolId}`)
     return { success: true }
+  } catch (error) {
+    return { success: false, error: toActionError(error) }
+  }
+}
+
+// ─── Migrer toutes les écoles (ré-applique le DDL idempotent à chaque schéma) ──
+export async function migrateAllTenants(): Promise<ActionResult<{ migrated: number; failed: string[] }>> {
+  await requireRole('SUPER_ADMIN')
+
+  try {
+    const sqlPath = join(process.cwd(), 'prisma', 'tenant-schema.sql')
+    const sql = readFileSync(sqlPath, 'utf-8')
+
+    const schools: { schemaName: string }[] = await db.school.findMany({
+      select: { schemaName: true },
+    })
+
+    const failed: string[] = []
+    let migrated = 0
+
+    const pgPool = new Pool({ connectionString: process.env.DATABASE_URL })
+    try {
+      for (const { schemaName } of schools) {
+        const pgClient = await pgPool.connect()
+        try {
+          await pgClient.query(`SET search_path = "${schemaName}", public`)
+          await pgClient.query(sql)
+          migrated++
+        } catch {
+          failed.push(schemaName)
+        } finally {
+          pgClient.release()
+        }
+      }
+    } finally {
+      await pgPool.end()
+    }
+
+    return { success: true, data: { migrated, failed } }
   } catch (error) {
     return { success: false, error: toActionError(error) }
   }

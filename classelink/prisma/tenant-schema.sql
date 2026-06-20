@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   last_name        TEXT NOT NULL,
   phone            TEXT,
   avatar_url       TEXT,
-  role             TEXT NOT NULL CHECK (role IN ('ADMIN','CENSOR','ACCOUNTANT','TEACHER','PARENT','STUDENT')),
+  role             TEXT NOT NULL CHECK (role IN ('ADMIN','CENSOR','ACCOUNTANT','TEACHER','PARENT','STUDENT','STAFF')),
   is_active        BOOLEAN DEFAULT TRUE,
   email_verified   BOOLEAN DEFAULT FALSE,
   two_factor_enabled BOOLEAN DEFAULT FALSE,
@@ -21,6 +21,14 @@ CREATE TABLE IF NOT EXISTS users (
   created_at       TIMESTAMPTZ DEFAULT NOW(),
   updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ─── Personnel : poste & accès par module (bloc idempotent) ──────────────────
+-- Étend la contrainte de rôle pour les écoles existantes et ajoute les colonnes.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check
+  CHECK (role IN ('ADMIN','CENSOR','ACCOUNTANT','TEACHER','PARENT','STUDENT','STAFF'));
+ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title       TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_modules TEXT[] DEFAULT '{}';
 
 -- ─── Années scolaires ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS academic_years (
@@ -369,6 +377,21 @@ CREATE TABLE IF NOT EXISTS school_settings (
   interior_rules_url TEXT,
   updated_at        TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ─── Personnalisation (identité visuelle) ─────────────────────────────────────
+-- Bloc idempotent : s'applique aussi aux écoles existantes lors d'un repair/migrate.
+ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS slogan          TEXT;
+ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS font_family     TEXT;
+ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS primary_color   TEXT;
+ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS secondary_color TEXT;
+
+-- ─── Moyen de paiement propre à l'école (secrets chiffrés au repos) ───────────
+ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS payment_provider           TEXT;    -- 'GENIUSPAY' | 'CINETPAY' | NULL
+ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS payment_enabled            BOOLEAN DEFAULT FALSE;
+ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS payment_api_key_enc        TEXT;
+ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS payment_api_secret_enc     TEXT;
+ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS payment_site_id_enc        TEXT;    -- CinetPay (site_id)
+ALTER TABLE school_settings ADD COLUMN IF NOT EXISTS payment_webhook_secret_enc TEXT;
 
 -- ─── Conseil de classe ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS class_councils (

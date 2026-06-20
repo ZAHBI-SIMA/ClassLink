@@ -75,9 +75,27 @@ export default async function SchedulePage({ searchParams }: Props) {
                 <h2 className="text-sm font-semibold text-gray-900">
                   {selectedClass?.name} — Vue hebdomadaire
                 </h2>
-                <span className="text-xs text-gray-400">
-                  {(slots as any[]).length} créneau{(slots as any[]).length !== 1 ? 'x' : ''}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400">
+                    {(slots as any[]).length} créneau{(slots as any[]).length !== 1 ? 'x' : ''}
+                  </span>
+                  {(slots as any[]).length > 0 && (
+                    <a
+                      href={`/api/admin/schedule/${selectedClassId}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold
+                                 rounded-lg border transition
+                                 bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Exporter PDF
+                    </a>
+                  )}
+                </div>
               </div>
               <ScheduleGrid slots={slots as any[]} showTeacher />
             </div>

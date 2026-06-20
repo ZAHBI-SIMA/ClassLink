@@ -5,7 +5,7 @@ import { withRetry } from '@/lib/db/retry'
 import { requireRole } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
 import type { ActionResult } from '@/types'
-import { initiatePayment } from '@/lib/payments/geniuspay'
+import { initiateSchoolPayment } from '@/lib/payments/provider'
 
 async function getParentDb() {
   const session = await requireRole('PARENT')
@@ -448,21 +448,21 @@ export async function initiateOnlinePayment(
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
     const schemaName = session.user.schemaName
 
-    const init = await initiatePayment({
+    const init = await initiateSchoolPayment(schemaName, {
       amount: Number(payment.amount),
       description: payment.fee_name,
       customerId: session.user.id,
       customerName: session.user.name ?? session.user.email ?? '',
       customerEmail: session.user.email ?? '',
       returnUrl: `${baseUrl}/parent/payment/return?paymentId=${paymentId}&studentId=${studentId}`,
-      notifyUrl: `${baseUrl}/api/webhooks/geniuspay`,
+      baseUrl,
       metadata: { paymentId, schemaName, studentId },
     })
 
-    // Stocker le transactionId comme provider_ref
+    // Stocker le transactionId et le PSP réellement utilisé comme provider_ref
     await db.$executeRaw`
       UPDATE payments
-      SET provider = 'GENIUSPAY', provider_ref = ${init.transactionId}
+      SET provider = ${init.provider}, provider_ref = ${init.transactionId}
       WHERE id = ${paymentId}
     `
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyWebhookSignature, verifyPayment } from '@/lib/payments/geniuspay'
+import { verifyWebhookSignature } from '@/lib/payments/geniuspay'
+import { getSchoolPaymentConfig, verifySchoolPayment } from '@/lib/payments/provider'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { activateSchoolIfPaid } from '@/actions/register'
 
@@ -11,12 +12,6 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text()
     const signature = request.headers.get('X-Webhook-Signature') ?? ''
     const timestamp = request.headers.get('X-Webhook-Timestamp') ?? ''
-
-    const isValid = await verifyWebhookSignature(rawBody, timestamp, signature)
-    if (!isValid) {
-      console.error('[GeniusPay webhook] Signature invalide')
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-    }
 
     let payload: any
     try {
@@ -36,7 +31,13 @@ export async function POST(request: NextRequest) {
     } = data.metadata ?? {}
 
     // ── Paiement d'abonnement SaaS (création d'école) ──────────────────────
+    // Compte GeniusPay global ClassLink → signature avec le secret global.
     if (metadata.kind === 'subscription') {
+      const validGlobal = await verifyWebhookSignature(rawBody, timestamp, signature)
+      if (!validGlobal) {
+        console.error('[GeniusPay webhook] Signature invalide (abonnement)')
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+      }
       if (!metadata.schoolId) {
         return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
       }
@@ -52,8 +53,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing metadata fields' }, { status: 400 })
     }
 
-    // On revérifie le statut côté GeniusPay (ne pas se fier au seul payload)
-    const verification = await verifyPayment(reference)
+    // Signature vérifiée avec le secret de l'école (repli global)
+    const cfg = await getSchoolPaymentConfig(schemaName)
+    const isValid = await verifyWebhookSignature(rawBody, timestamp, signature, cfg?.webhookSecret ?? undefined)
+    if (!isValid) {
+      console.error('[GeniusPay webhook] Signature invalide')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+
+    // On revérifie le statut côté PSP de l'école (ne pas se fier au seul payload)
+    const verification = await verifySchoolPayment(schemaName, 'GENIUSPAY', reference)
     const db = getTenantPrisma(schemaName) as any
 
     if (verification.status === 'ACCEPTED') {

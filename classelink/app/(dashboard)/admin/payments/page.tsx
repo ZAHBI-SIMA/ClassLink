@@ -1,6 +1,7 @@
 import { getPayments, getPaymentStats, getStudentsForPayment, getFeeTypes } from '@/actions/admin'
 import { PaymentCreateForm } from './create-form'
 import { MarkPaidButton } from './mark-paid-button'
+import { PaymentLinkButton } from './payment-link-button'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -131,7 +132,10 @@ export default async function PaymentsPage({ searchParams }: Props) {
                       </td>
                       <td className="px-4 py-3 text-right">
                         {p.status === 'PENDING' && (
-                          <MarkPaidButton paymentId={p.id} />
+                          <div className="flex flex-col items-end gap-1.5">
+                            <PaymentLinkButton paymentId={p.id} />
+                            <MarkPaidButton paymentId={p.id} />
+                          </div>
                         )}
                         {p.status === 'SUCCESS' && p.paid_at && (
                           <span className="text-xs text-gray-400">

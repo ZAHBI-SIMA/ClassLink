@@ -7,6 +7,7 @@ export type Role =
   | 'TEACHER'
   | 'PARENT'
   | 'STUDENT'
+  | 'STAFF'
 
 // ─── Statuts école ────────────────────────────────────────────────────────────
 export type SchoolStatus = 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | 'CANCELLED'

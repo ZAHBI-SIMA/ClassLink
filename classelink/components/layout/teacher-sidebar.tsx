@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logoutAction } from '@/actions/auth'
+import { SidebarShell } from './sidebar-shell'
 
 const NAV = [
   {
@@ -120,16 +121,21 @@ const NAV = [
 interface Props {
   teacherName: string
   schoolName?: string
+  logoUrl?: string | null
+  slogan?: string | null
 }
 
-export function TeacherSidebar({ teacherName, schoolName }: Props) {
+export function TeacherSidebar({ teacherName, schoolName, logoUrl, slogan }: Props) {
   const pathname = usePathname()
 
   return (
-    <aside className="w-56 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">
+    <SidebarShell className="w-56 flex-shrink-0 bg-white border-r border-gray-200">
       {/* En-tête */}
       <div className="px-5 py-4 border-b border-gray-100">
-        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Enseignant</p>
+        {logoUrl && (
+          <img src={logoUrl} alt="" className="w-7 h-7 rounded-lg object-cover mb-2" />
+        )}
+        <p className="text-xs font-semibold text-primary uppercase tracking-wide">{slogan || 'Enseignant'}</p>
         <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">{teacherName}</p>
         {schoolName && (
           <p className="text-xs text-gray-400 truncate">{schoolName}</p>
@@ -148,7 +154,7 @@ export function TeacherSidebar({ teacherName, schoolName }: Props) {
               href={item.href}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition ${
                 active
-                  ? 'bg-blue-50 text-blue-700'
+                  ? 'bg-primary/10 text-primary'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
@@ -175,6 +181,6 @@ export function TeacherSidebar({ teacherName, schoolName }: Props) {
           </button>
         </form>
       </div>
-    </aside>
+    </SidebarShell>
   )
 }

@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { logoutAction } from '@/actions/auth'
 import { getInitials } from '@/lib/utils'
+import { SidebarToggle } from './sidebar-toggle'
 import Link from 'next/link'
 
 interface Props {
@@ -12,12 +13,14 @@ export async function DashboardHeader({ title }: Props) {
   const user = session?.user
 
   return (
-    <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-6 flex-shrink-0">
+    <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
+      <SidebarToggle className="-ml-1 mr-1" />
+
       {title && (
-        <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+        <h1 className="text-lg font-semibold text-gray-900 truncate">{title}</h1>
       )}
 
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-2 sm:gap-4">
         {/* Notifications */}
         <button
           className="relative p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"

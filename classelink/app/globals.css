@@ -48,3 +48,21 @@ body {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+
+/* Empêche tout débordement horizontal de la page */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Tables responsives : défilement horizontal sur petits écrans plutôt que troncature */
+@media (max-width: 767px) {
+  main table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+}

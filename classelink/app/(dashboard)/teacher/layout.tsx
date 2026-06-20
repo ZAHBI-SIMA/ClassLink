@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { TeacherSidebar } from '@/components/layout/teacher-sidebar'
+import { SidebarProvider } from '@/components/layout/sidebar-context'
+import { MobileTopbar } from '@/components/layout/mobile-topbar'
+import { SchoolThemeFont, schoolThemeStyle } from '@/components/layout/school-theme'
 
 export const runtime = 'nodejs'
 
@@ -15,23 +18,39 @@ export default async function TeacherLayout({ children }: { children: React.Reac
 
   let schoolName = ''
   let teacherName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+  let theme: any = {}
 
   try {
     const db = getTenantPrisma(user.schemaName) as any
     const rows: any[] = await db.$queryRaw`
-      SELECT school_name FROM school_settings LIMIT 1
+      SELECT school_name, logo_url, slogan, primary_color, secondary_color, font_family
+      FROM school_settings LIMIT 1
     `
     schoolName = rows[0]?.school_name ?? ''
+    theme = rows[0] ?? {}
   } catch { /* ok */ }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <TeacherSidebar teacherName={teacherName} schoolName={schoolName} />
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          {children}
+    <SidebarProvider>
+      <SchoolThemeFont fontFamily={theme.font_family} />
+      <div
+        className="flex h-screen bg-gray-50 overflow-hidden"
+        style={schoolThemeStyle({
+          primaryColor:   theme.primary_color,
+          secondaryColor: theme.secondary_color,
+          fontFamily:     theme.font_family,
+        })}
+      >
+        <TeacherSidebar teacherName={teacherName} schoolName={schoolName} logoUrl={theme.logo_url} slogan={theme.slogan} />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <MobileTopbar title={schoolName || teacherName} />
+          <main className="flex-1 overflow-y-auto">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+              {children}
+            </div>
+          </main>
         </div>
-      </main>
-    </div>
+      </div>
+    </SidebarProvider>
   )
 }

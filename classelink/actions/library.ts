@@ -31,7 +31,22 @@ export async function getBooks(
 ): Promise<any[]> {
   const { db } = await getAnyRoleDb()
 
-  const rows: any[] = await db.$queryRaw`
+  const params: any[] = []
+  const conditions: string[] = []
+
+  if (search) {
+    params.push(`%${search}%`)
+    const n = params.length
+    conditions.push(`(b.title ILIKE $${n} OR b.author ILIKE $${n})`)
+  }
+  if (category) {
+    params.push(category)
+    conditions.push(`b.category = $${params.length}`)
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+
+  return db.$queryRawUnsafe(`
     SELECT
       b.id, b.title, b.author, b.isbn, b.category,
       b.quantity, b.available, b.location, b.description,
@@ -39,14 +54,10 @@ export async function getBooks(
       COUNT(bl.id) FILTER (WHERE bl.status = 'ACTIVE')::int AS active_loans
     FROM books b
     LEFT JOIN book_loans bl ON bl.book_id = b.id
-    WHERE (${search ?? null} IS NULL
-           OR b.title  ILIKE ${'%' + (search ?? '') + '%'}
-           OR b.author ILIKE ${'%' + (search ?? '') + '%'})
-      AND (${category ?? null} IS NULL OR b.category = ${category ?? null})
+    ${where}
     GROUP BY b.id
     ORDER BY b.title
-  `
-  return rows
+  `, ...params)
 }
 
 // ─── Créer un livre ───────────────────────────────────────────────────────────

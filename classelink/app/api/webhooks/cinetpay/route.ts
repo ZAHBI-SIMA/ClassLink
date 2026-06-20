@@ -1,22 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyWebhookSignature, verifyPayment } from '@/lib/payments/cinetpay'
+import { verifyWebhookSignature } from '@/lib/payments/cinetpay'
+import { getSchoolPaymentConfig, verifySchoolPayment } from '@/lib/payments/provider'
 import { getTenantPrisma } from '@/lib/db/tenant'
 
 export async function POST(request: NextRequest) {
   try {
     const payload = await request.json()
 
-    // Vérifier la signature CinetPay
-    const isValid = await verifyWebhookSignature(payload)
-    if (!isValid) {
-      console.error('[CinetPay webhook] Invalid signature')
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
-    }
-
     const transactionId: string = payload.cpm_trans_id
     const rawCustom: string = payload.cpm_custom ?? '{}'
 
-    // Récupérer le contexte métier stocké dans metadata
+    // Récupérer le contexte métier stocké dans metadata (avant vérif de signature
+    // pour savoir quelle clé d'école utiliser ; la signature est validée ensuite).
     let metadata: { paymentId?: string; schemaName?: string; studentId?: string } = {}
     try {
       metadata = JSON.parse(rawCustom)
@@ -31,8 +26,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing metadata fields' }, { status: 400 })
     }
 
-    // Vérifier le statut auprès de CinetPay
-    const verification = await verifyPayment(transactionId)
+    // Vérifier la signature CinetPay avec le secret de l'école (repli global)
+    const cfg = await getSchoolPaymentConfig(schemaName)
+    const isValid = await verifyWebhookSignature(payload, cfg?.webhookSecret ?? undefined)
+    if (!isValid) {
+      console.error('[CinetPay webhook] Invalid signature')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    }
+
+    // Vérifier le statut auprès de CinetPay (clés de l'école)
+    const verification = await verifySchoolPayment(schemaName, 'CINETPAY', transactionId)
 
     const db = getTenantPrisma(schemaName) as any
 

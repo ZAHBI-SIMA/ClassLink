@@ -1,6 +1,7 @@
 'use client'
 
 import { SidebarLink } from './sidebar-link'
+import { SidebarShell } from './sidebar-shell'
 import { logoutAction } from '@/actions/auth'
 
 const NAV = [
@@ -59,7 +60,7 @@ const NAV = [
 
 export function SuperAdminSidebar() {
   return (
-    <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col h-full">
+    <SidebarShell className="w-64 flex-shrink-0 border-r border-gray-200 bg-white">
       {/* Logo */}
       <div className="h-16 flex items-center px-5 border-b border-gray-200">
         <div className="flex items-center gap-2.5">
@@ -99,6 +100,6 @@ export function SuperAdminSidebar() {
           </button>
         </form>
       </div>
-    </aside>
+    </SidebarShell>
   )
 }

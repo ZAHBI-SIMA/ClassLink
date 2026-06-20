@@ -1,10 +1,12 @@
 'use client'
 
 import { SidebarLink } from './sidebar-link'
+import { SidebarShell } from './sidebar-shell'
 import { logoutAction } from '@/actions/auth'
 import { featureForPath, hasFeature } from '@/lib/plan/features'
+import { moduleForPath } from '@/lib/permissions/modules'
 
-type Role = 'ADMIN' | 'CENSOR' | 'ACCOUNTANT' | 'TEACHER'
+type Role = 'ADMIN' | 'CENSOR' | 'ACCOUNTANT' | 'TEACHER' | 'STAFF'
 
 interface NavItem {
   label: string
@@ -340,44 +342,63 @@ const ROLE_LABELS: Record<Role, string> = {
   CENSOR: 'Censure',
   ACCOUNTANT: 'Comptabilité',
   TEACHER: 'Enseignant',
+  STAFF: 'Personnel',
 }
 
 export function AdminSidebar({
   schoolName,
   role = 'ADMIN',
   planSlug = null,
+  logoUrl = null,
+  slogan = null,
+  allowedModules = [],
 }: {
   schoolName?: string
   role?: string
   planSlug?: string | null
+  logoUrl?: string | null
+  slogan?: string | null
+  allowedModules?: string[]
 }) {
   const userRole = (role as Role) || 'ADMIN'
 
   const visibleNav = NAV.filter(item => {
-    // Filtre par rôle
-    if (item.roles && !item.roles.includes(userRole)) return false
-    // Filtre par forfait
+    // Filtre par forfait (commun à tous)
     const feat = featureForPath(item.href)
     if (feat && !hasFeature(planSlug, feat)) return false
+
+    // Personnel : uniquement le tableau de bord + ses modules autorisés
+    if (userRole === 'STAFF') {
+      if (item.exact && item.href === '/admin') return true
+      const mod = moduleForPath(item.href)
+      return !!mod && allowedModules.includes(mod)
+    }
+
+    // Rôles pleins : filtre par rôle de l'item
+    if (item.roles && !item.roles.includes(userRole)) return false
     return true
   })
 
   return (
-    <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col h-full">
+    <SidebarShell className="w-64 flex-shrink-0 border-r border-gray-200 bg-white">
       <div className="h-16 flex items-center px-5 border-b border-gray-200">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-          </div>
+          {logoUrl ? (
+            <img src={logoUrl} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+          )}
           <div className="min-w-0">
             <p className="text-sm font-bold text-gray-900 leading-tight truncate">
               {schoolName ?? 'ClasseLink'}
             </p>
-            <p className="text-[10px] text-blue-600 font-medium uppercase tracking-wide">
-              {ROLE_LABELS[userRole] ?? 'Administration'}
+            <p className="text-[10px] text-primary font-medium uppercase tracking-wide truncate">
+              {slogan || ROLE_LABELS[userRole] || 'Administration'}
             </p>
           </div>
         </div>
@@ -404,6 +425,6 @@ export function AdminSidebar({
           </button>
         </form>
       </div>
-    </aside>
+    </SidebarShell>
   )
 }

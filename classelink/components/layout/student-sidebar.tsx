@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logoutAction } from '@/actions/auth'
+import { SidebarShell } from './sidebar-shell'
 
 const NAV = [
   {
@@ -72,12 +73,15 @@ const NAV = [
   },
 ]
 
-export function StudentSidebar({ studentName, className }: { studentName: string; className?: string }) {
+export function StudentSidebar({ studentName, className, logoUrl, slogan }: { studentName: string; className?: string; logoUrl?: string | null; slogan?: string | null }) {
   const pathname = usePathname()
   return (
-    <aside className="w-56 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">
+    <SidebarShell className="w-56 flex-shrink-0 bg-white border-r border-gray-200">
       <div className="px-5 py-4 border-b border-gray-100">
-        <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Élève</p>
+        {logoUrl && (
+          <img src={logoUrl} alt="" className="w-7 h-7 rounded-lg object-cover mb-2" />
+        )}
+        <p className="text-xs font-semibold text-primary uppercase tracking-wide">{slogan || 'Élève'}</p>
         <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">{studentName}</p>
         {className && <p className="text-xs text-gray-400">{className}</p>}
       </div>
@@ -86,7 +90,7 @@ export function StudentSidebar({ studentName, className }: { studentName: string
           const active = item.href === '/student' ? pathname === '/student' : pathname.startsWith(item.href)
           return (
             <Link key={item.href} href={item.href}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition ${active ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition ${active ? 'bg-primary/10 text-primary' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
               {item.icon}{item.label}
             </Link>
           )
@@ -100,6 +104,6 @@ export function StudentSidebar({ studentName, className }: { studentName: string
           </button>
         </form>
       </div>
-    </aside>
+    </SidebarShell>
   )
 }

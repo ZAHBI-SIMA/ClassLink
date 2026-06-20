@@ -38,15 +38,34 @@ interface WebhookPayload {
 
 const CINETPAY_API = 'https://api-checkout.cinetpay.com/v2/payment'
 
-export async function initiatePayment(data: PaymentInitData): Promise<PaymentInitResponse> {
+/** Identifiants CinetPay (par défaut : compte global ClassLink via env). */
+export interface CinetPayCreds {
+  apiKey:        string
+  siteId:        string
+  secretKey?:    string
+}
+
+function resolveCreds(creds?: CinetPayCreds): CinetPayCreds {
+  return {
+    apiKey:     creds?.apiKey     ?? process.env.CINETPAY_API_KEY    ?? '',
+    siteId:     creds?.siteId     ?? process.env.CINETPAY_SITE_ID    ?? '',
+    secretKey:  creds?.secretKey  ?? process.env.CINETPAY_SECRET_KEY ?? '',
+  }
+}
+
+export async function initiatePayment(
+  data: PaymentInitData,
+  creds?: CinetPayCreds
+): Promise<PaymentInitResponse> {
+  const c = resolveCreds(creds)
   const transactionId = `CL-${nanoid(12).toUpperCase()}`
 
   const response = await fetch(CINETPAY_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      apikey: process.env.CINETPAY_API_KEY,
-      site_id: process.env.CINETPAY_SITE_ID,
+      apikey: c.apiKey,
+      site_id: c.siteId,
       transaction_id: transactionId,
       amount: data.amount,
       currency: 'XOF',
@@ -79,17 +98,18 @@ export async function initiatePayment(data: PaymentInitData): Promise<PaymentIni
   }
 }
 
-export async function verifyPayment(transactionId: string): Promise<{
+export async function verifyPayment(transactionId: string, creds?: CinetPayCreds): Promise<{
   status: 'ACCEPTED' | 'REFUSED' | 'PENDING'
   amount: number
   paymentMethod: string
 }> {
+  const c = resolveCreds(creds)
   const response = await fetch('https://api-checkout.cinetpay.com/v2/payment/check', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      apikey: process.env.CINETPAY_API_KEY,
-      site_id: process.env.CINETPAY_SITE_ID,
+      apikey: c.apiKey,
+      site_id: c.siteId,
       transaction_id: transactionId,
     }),
   })
@@ -109,8 +129,11 @@ export async function verifyPayment(transactionId: string): Promise<{
   }
 }
 
-export async function verifyWebhookSignature(payload: WebhookPayload): Promise<boolean> {
-  const secret = process.env.CINETPAY_SECRET_KEY!
+export async function verifyWebhookSignature(
+  payload: WebhookPayload,
+  secretKey?: string
+): Promise<boolean> {
+  const secret = secretKey ?? process.env.CINETPAY_SECRET_KEY ?? ''
   // Validation de signature selon la doc CinetPay
   const expectedSignature = await generateSignature(payload, secret)
   return payload.signature === expectedSignature

@@ -1,6 +1,7 @@
 import { getParentById, getStudentsNotLinkedToParent } from '@/actions/admin'
 import { ResetParentPasswordForm } from './reset-password-form'
 import { LinkStudentForm } from './link-student-form'
+import { DeleteParentDialog } from './delete-parent-dialog'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatDate, getInitials } from '@/lib/utils'
@@ -76,6 +77,12 @@ export default async function ParentDetailPage({ params }: Props) {
 
       {/* Réinitialisation mot de passe */}
       <ResetParentPasswordForm userId={parent.user_id} />
+
+      {/* Suppression du parent */}
+      <DeleteParentDialog
+        parentId={id}
+        parentName={`${parent.first_name} ${parent.last_name}`}
+      />
     </div>
   )
 }
