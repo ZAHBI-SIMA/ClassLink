@@ -1,0 +1,9 @@
+# Config locale Claude Code (préférences/lancement propres à la machine)
+.claude/
+
+# Logs de développement
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

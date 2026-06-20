@@ -76,7 +76,10 @@ export default async function SchoolDetailPage({ params }: Props) {
               </form>
             )}
 
-            <form action={repairTenantSchema.bind(null, school.id) as any}>
+            <form action={async () => {
+              'use server'
+              await repairTenantSchema(school.id)
+            }}>
               <button
                 type="submit"
                 className="w-full px-4 py-2 rounded-lg text-sm font-medium bg-purple-100

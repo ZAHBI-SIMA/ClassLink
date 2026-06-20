@@ -1,13 +1,14 @@
-import { getSchoolSettings, getSubscriptionInfo } from '@/actions/settings'
+import { getSchoolSettings, getSubscriptionInfo, getSchoolSlug } from '@/actions/settings'
 import { PageHeader } from '@/components/ui/page-header'
 import { SettingsForm } from './settings-form'
 
 export const metadata = { title: 'Paramètres — ClassLink' }
 
 export default async function SettingsPage() {
-  const [settings, subscription] = await Promise.all([
+  const [settings, subscription, schoolSlug] = await Promise.all([
     getSchoolSettings(),
     getSubscriptionInfo().catch(() => null),
+    getSchoolSlug().catch(() => null),
   ])
 
   return (
@@ -16,7 +17,7 @@ export default async function SettingsPage() {
         title="Paramètres de l'établissement"
         description="Configurez les informations générales, la direction et les notifications."
       />
-      <SettingsForm settings={settings} subscription={subscription} />
+      <SettingsForm settings={settings} subscription={subscription} schoolSlug={schoolSlug} />
     </div>
   )
 }

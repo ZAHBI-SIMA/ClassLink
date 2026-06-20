@@ -22,11 +22,11 @@ export function SidebarLink({ href, icon, label, badge, exact = false }: Props) 
       className={cn(
         'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
         active
-          ? 'bg-blue-50 text-blue-700'
+          ? 'bg-primary/10 text-primary'
           : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
       )}
     >
-      <span className={cn('w-5 h-5 flex-shrink-0', active ? 'text-blue-600' : 'text-gray-400')}>
+      <span className={cn('w-5 h-5 flex-shrink-0', active ? 'text-primary' : 'text-gray-400')}>
         {icon}
       </span>
       <span className="flex-1 truncate">{label}</span>

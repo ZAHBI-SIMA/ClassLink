@@ -11,6 +11,21 @@
 const GENIUSPAY_API =
   process.env.GENIUSPAY_API_URL ?? 'https://pay.genius.ci/api/v1/merchant'
 
+/** Identifiants GeniusPay (par défaut : compte global ClassLink via env). */
+export interface GeniusPayCreds {
+  apiKey:        string
+  apiSecret:     string
+  webhookSecret?: string
+}
+
+function resolveCreds(creds?: GeniusPayCreds): GeniusPayCreds {
+  return {
+    apiKey:        creds?.apiKey        ?? process.env.GENIUSPAY_API_KEY        ?? '',
+    apiSecret:     creds?.apiSecret     ?? process.env.GENIUSPAY_API_SECRET     ?? '',
+    webhookSecret: creds?.webhookSecret ?? process.env.GENIUSPAY_WEBHOOK_SECRET ?? '',
+  }
+}
+
 interface PaymentInitData {
   amount: number
   description: string
@@ -31,10 +46,11 @@ interface PaymentInitResponse {
 
 type NormalizedStatus = 'ACCEPTED' | 'REFUSED' | 'PENDING'
 
-function authHeaders(): HeadersInit {
+function authHeaders(creds?: GeniusPayCreds): HeadersInit {
+  const c = resolveCreds(creds)
   return {
-    'X-API-Key': process.env.GENIUSPAY_API_KEY ?? '',
-    'X-API-Secret': process.env.GENIUSPAY_API_SECRET ?? '',
+    'X-API-Key': c.apiKey,
+    'X-API-Secret': c.apiSecret,
     'Content-Type': 'application/json',
   }
 }
@@ -58,11 +74,12 @@ function normalizeStatus(status: string): NormalizedStatus {
  * On omet `payment_method` pour afficher la page de choix (Wave, Orange Money, MTN, carte…).
  */
 export async function initiatePayment(
-  data: PaymentInitData
+  data: PaymentInitData,
+  creds?: GeniusPayCreds
 ): Promise<PaymentInitResponse> {
   const response = await fetch(`${GENIUSPAY_API}/payments`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: authHeaders(creds),
     body: JSON.stringify({
       amount: data.amount,
       currency: 'XOF',
@@ -99,14 +116,14 @@ export async function initiatePayment(
 /**
  * Vérifie le statut d'une transaction auprès de GeniusPay.
  */
-export async function verifyPayment(reference: string): Promise<{
+export async function verifyPayment(reference: string, creds?: GeniusPayCreds): Promise<{
   status: NormalizedStatus
   amount: number
   paymentMethod: string
 }> {
   const response = await fetch(
     `${GENIUSPAY_API}/payments/${encodeURIComponent(reference)}`,
-    { method: 'GET', headers: authHeaders() }
+    { method: 'GET', headers: authHeaders(creds) }
   )
 
   const result = await response.json().catch(() => null)
@@ -131,9 +148,10 @@ export async function verifyPayment(reference: string): Promise<{
 export async function verifyWebhookSignature(
   rawBody: string,
   timestamp: string,
-  signature: string
+  signature: string,
+  webhookSecret?: string
 ): Promise<boolean> {
-  const secret = process.env.GENIUSPAY_WEBHOOK_SECRET
+  const secret = webhookSecret ?? process.env.GENIUSPAY_WEBHOOK_SECRET
   if (!secret || !signature || !timestamp) return false
 
   const encoder = new TextEncoder()

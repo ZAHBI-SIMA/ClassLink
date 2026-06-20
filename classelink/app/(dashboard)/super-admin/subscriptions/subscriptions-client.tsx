@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useState, useTransition } from 'react'
-import { updateSubscription, recordManualPayment } from '@/actions/super-admin'
+import { updateSubscription, recordManualPayment, backfillMissingSubscriptions } from '@/actions/super-admin'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
@@ -250,6 +250,23 @@ export function SubscriptionsClient({
   currentFilters: { page?: string; status?: string; planId?: string; search?: string }
 }) {
   const [modal, setModal] = useState<{ type: 'edit' | 'pay' | 'history'; sub: Subscription } | null>(null)
+  const [backfillPending, startBackfill] = useTransition()
+  const [backfillMsg, setBackfillMsg] = useState<string | null>(null)
+
+  function handleBackfill() {
+    startBackfill(async () => {
+      const res = await backfillMissingSubscriptions()
+      if (res.success) {
+        setBackfillMsg(
+          res.data!.created === 0
+            ? 'Aucune école sans abonnement — tout est à jour.'
+            : `${res.data!.created} abonnement(s) créé(s) avec succès.`
+        )
+      } else {
+        setBackfillMsg(`Erreur : ${res.error}`)
+      }
+    })
+  }
 
   const statCards = [
     { label: 'Actifs',   value: stats.active,    cls: 'text-green-700 bg-green-50 border-green-200' },
@@ -274,6 +291,24 @@ export function SubscriptionsClient({
             <p className="text-xs font-medium mt-0.5 opacity-80">{s.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Backfill écoles sans abonnement */}
+      <div className="flex items-center gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
+        <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        <p className="text-xs text-amber-800 flex-1">
+          {backfillMsg ?? 'Des écoles créées manuellement peuvent manquer dans cette liste. Cliquez pour les synchroniser.'}
+        </p>
+        <button
+          onClick={handleBackfill}
+          disabled={backfillPending}
+          className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 disabled:opacity-60 transition"
+        >
+          {backfillPending ? 'Synchronisation…' : 'Synchroniser'}
+        </button>
       </div>
 
       {/* Filtres */}

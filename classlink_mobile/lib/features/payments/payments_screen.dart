@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/api_constants.dart';
 import '../../core/theme/app_theme.dart';
@@ -49,7 +50,10 @@ class PaymentsScreen extends ConsumerWidget {
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: payments.length,
-              itemBuilder: (ctx, i) => _PaymentCard(payment: payments[i] as Map<String, dynamic>),
+              itemBuilder: (ctx, i) => _PaymentCard(
+                payment: payments[i] as Map<String, dynamic>,
+                onPaid: () => ref.invalidate(paymentsProvider(studentId)),
+              ),
             ),
           );
         },
@@ -60,9 +64,18 @@ class PaymentsScreen extends ConsumerWidget {
 
 // ─── Carte paiement ───────────────────────────────────────────────────────────
 
-class _PaymentCard extends StatelessWidget {
+class _PaymentCard extends StatefulWidget {
   final Map<String, dynamic> payment;
-  const _PaymentCard({required this.payment});
+  final VoidCallback onPaid;
+  const _PaymentCard({required this.payment, required this.onPaid});
+
+  @override
+  State<_PaymentCard> createState() => _PaymentCardState();
+}
+
+class _PaymentCardState extends State<_PaymentCard> {
+  bool _loading = false;
+  String? _error;
 
   Color _statusColor(String status) => switch (status) {
     'SUCCESS'  => AppTheme.success,
@@ -88,16 +101,52 @@ class _PaymentCard extends StatelessWidget {
     _          => Icons.help_outline_rounded,
   };
 
+  Future<void> _initiatePayment() async {
+    final paymentId = widget.payment['id'] as String?;
+    if (paymentId == null) return;
+
+    setState(() { _loading = true; _error = null; });
+
+    try {
+      final resp = await ApiClient().post(
+        ApiConstants.paymentInitiate(paymentId),
+        data: {},
+      );
+      final paymentUrl = resp.data['paymentUrl'] as String?;
+      if (paymentUrl == null) {
+        setState(() { _error = 'URL de paiement introuvable.'; _loading = false; });
+        return;
+      }
+
+      final uri = Uri.parse(paymentUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        // Rafraîchir après retour
+        widget.onPaid();
+      } else {
+        setState(() { _error = 'Impossible d\'ouvrir le navigateur.'; });
+      }
+    } catch (e) {
+      setState(() { _error = e.toString().replaceAll('Exception: ', ''); });
+    } finally {
+      setState(() { _loading = false; });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final status  = payment['status'] as String? ?? 'PENDING';
-    final color   = _statusColor(status);
-    final amount  = payment['amount'] as num? ?? 0;
-    final dueDate = payment['dueDate'] != null
-        ? DateFormat('dd MMM yyyy', 'fr').format(DateTime.tryParse(payment['dueDate'].toString()) ?? DateTime.now())
+    final status   = widget.payment['status'] as String? ?? 'PENDING';
+    final color    = _statusColor(status);
+    final amount   = widget.payment['amount'] as num? ?? 0;
+    final isPending = status == 'PENDING';
+
+    final dueDate = widget.payment['dueDate'] != null
+        ? DateFormat('dd MMM yyyy', 'fr').format(
+            DateTime.tryParse(widget.payment['dueDate'].toString()) ?? DateTime.now())
         : '—';
-    final createdAt = payment['createdAt'] != null
-        ? DateFormat('dd/MM/yyyy', 'fr').format(DateTime.tryParse(payment['createdAt'].toString()) ?? DateTime.now())
+    final createdAt = widget.payment['createdAt'] != null
+        ? DateFormat('dd/MM/yyyy', 'fr').format(
+            DateTime.tryParse(widget.payment['createdAt'].toString()) ?? DateTime.now())
         : '—';
 
     return Container(
@@ -105,61 +154,124 @@ class _PaymentCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
+        border: Border.all(
+          color: isPending ? AppTheme.warning.withValues(alpha: 0.4) : AppTheme.border,
+          width: isPending ? 1.5 : 1,
+        ),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 6,
+          offset: const Offset(0, 2),
+        )],
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 42, height: 42,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
-              child: Icon(_statusIcon(status), color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    payment['description'] as String? ?? 'Frais scolaires',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textMain),
+            Row(
+              children: [
+                Container(
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
                   ),
-                  if (payment['studentName'] != null)
-                    Text(payment['studentName'] as String,
-                      style: TextStyle(fontSize: 11, color: AppTheme.textSub)),
-                  const SizedBox(height: 2),
-                  Row(
+                  child: Icon(_statusIcon(status), color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Créé le $createdAt',
-                        style: TextStyle(fontSize: 11, color: AppTheme.textSub)),
-                      if (dueDate != '—') ...[
-                        const Text(' · ', style: TextStyle(fontSize: 11, color: AppTheme.textSub)),
-                        Text('Échéance : $dueDate',
-                          style: TextStyle(fontSize: 11, color: AppTheme.textSub)),
-                      ],
+                      Text(
+                        widget.payment['description'] as String? ?? 'Frais scolaires',
+                        style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textMain),
+                      ),
+                      if (widget.payment['studentName'] != null)
+                        Text(widget.payment['studentName'] as String,
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textSub)),
+                      const SizedBox(height: 2),
+                      Row(children: [
+                        Text('Créé le $createdAt',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textSub)),
+                        if (dueDate != '—') ...[
+                          const Text(' · ',
+                            style: TextStyle(fontSize: 11, color: AppTheme.textSub)),
+                          Text('Éch. $dueDate',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.textSub)),
+                        ],
+                      ]),
                     ],
                   ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '${NumberFormat('#,###').format(amount)} F',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
                 ),
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                  child: Text(_statusLabel(status),
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${NumberFormat('#,###').format(amount)} F',
+                      style: TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w800, color: color),
+                    ),
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(_statusLabel(status),
+                        style: TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+                    ),
+                  ],
                 ),
               ],
             ),
+
+            // Bouton paiement Mobile Money pour les paiements en attente
+            if (isPending) ...[
+              const SizedBox(height: 12),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.danger),
+                  ),
+                ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _loading ? null : _initiatePayment,
+                  icon: _loading
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.phone_android_rounded, size: 18),
+                  label: Text(
+                    _loading ? 'Redirection…' : 'Payer par Mobile Money',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Center(
+                child: Text(
+                  'Wave · Orange Money · MTN · Moov',
+                  style: TextStyle(fontSize: 10, color: AppTheme.textSub),
+                ),
+              ),
+            ],
           ],
         ),
       ),

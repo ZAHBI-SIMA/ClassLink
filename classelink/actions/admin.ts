@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/auth/rbac'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { hash } from 'bcryptjs'
 import { nanoid } from 'nanoid'
+import { signPaymentToken } from '@/lib/payments/payment-link'
 import type { ActionResult } from '@/types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -25,7 +26,7 @@ function dbError(e: any): string {
 }
 
 async function getDb() {
-  const session = await requireRole('ADMIN', 'CENSOR', 'ACCOUNTANT')
+  const session = await requireRole('ADMIN', 'CENSOR', 'ACCOUNTANT', 'STAFF')
   return { db: getTenantPrisma(session.user.schemaName) as any, session }
 }
 
@@ -574,6 +575,106 @@ export async function createParent(
   }
 }
 
+// ─── Gestion classe & suppression élève ──────────────────────────────────────
+
+export async function removeStudentFromClass(studentId: string): Promise<ActionResult> {
+  try {
+    const { db } = await getDb()
+    await db.$executeRaw`
+      UPDATE enrollments SET status = 'INACTIVE'
+      WHERE student_id = ${studentId} AND status = 'ACTIVE'
+    `
+    revalidatePath(`/admin/students/${studentId}`)
+    revalidatePath('/admin/students')
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+export async function changeStudentClass(studentId: string, classId: string): Promise<ActionResult> {
+  try {
+    const { db } = await getDb()
+
+    const yearRows: { id: string }[] = await db.$queryRaw`
+      SELECT id FROM academic_years WHERE is_current = TRUE LIMIT 1
+    `
+    const yearId = yearRows[0]?.id
+    if (!yearId) return { success: false, error: 'Aucune année académique courante.' }
+
+    // Désactiver l'inscription actuelle
+    await db.$executeRaw`
+      UPDATE enrollments SET status = 'INACTIVE'
+      WHERE student_id = ${studentId} AND status = 'ACTIVE'
+    `
+    // Créer ou réactiver une inscription dans la nouvelle classe
+    await db.$executeRaw`
+      INSERT INTO enrollments (student_id, class_id, academic_year_id, status)
+      VALUES (${studentId}, ${classId}, ${yearId}, 'ACTIVE')
+      ON CONFLICT (student_id, academic_year_id)
+        DO UPDATE SET class_id = EXCLUDED.class_id, status = 'ACTIVE'
+    `
+    revalidatePath(`/admin/students/${studentId}`)
+    revalidatePath('/admin/students')
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+export async function deleteStudent(studentId: string): Promise<ActionResult> {
+  try {
+    const { db } = await getDb()
+
+    // Récupérer le user_id avant suppression
+    const rows: { user_id: string }[] = await db.$queryRaw`
+      SELECT user_id FROM students WHERE id = ${studentId} LIMIT 1
+    `
+    if (!rows[0]) return { success: false, error: 'Élève introuvable.' }
+    const userId = rows[0].user_id
+
+    // Supprimer dans l'ordre des dépendances
+    await db.$executeRaw`DELETE FROM alert_logs           WHERE student_id = ${studentId}`
+    await db.$executeRaw`DELETE FROM attendances          WHERE student_id = ${studentId}`
+    await db.$executeRaw`DELETE FROM grades               WHERE student_id = ${studentId}`
+    await db.$executeRaw`DELETE FROM payments             WHERE student_id = ${studentId}`
+    await db.$executeRaw`DELETE FROM cafeteria_subscriptions WHERE student_id = ${studentId}`
+    await db.$executeRaw`DELETE FROM book_loans           WHERE borrower_type = 'student' AND borrower_id = ${studentId}`
+    await db.$executeRaw`DELETE FROM parent_students      WHERE student_id = ${studentId}`
+    await db.$executeRaw`DELETE FROM enrollments          WHERE student_id = ${studentId}`
+    await db.$executeRaw`DELETE FROM students             WHERE id = ${studentId}`
+    await db.$executeRaw`DELETE FROM users                WHERE id = ${userId}`
+
+    revalidatePath('/admin/students')
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+// ─── Suppression parent ───────────────────────────────────────────────────────
+
+export async function deleteParent(parentId: string): Promise<ActionResult> {
+  try {
+    const { db } = await getDb()
+
+    const rows: { user_id: string }[] = await db.$queryRaw`
+      SELECT user_id FROM parents WHERE id = ${parentId} LIMIT 1
+    `
+    if (!rows[0]) return { success: false, error: 'Parent introuvable.' }
+    const userId = rows[0].user_id
+
+    await db.$executeRaw`DELETE FROM parent_students WHERE parent_id = ${parentId}`
+    await db.$executeRaw`DELETE FROM parents         WHERE id = ${parentId}`
+    await db.$executeRaw`DELETE FROM users           WHERE id = ${userId}`
+
+    revalidatePath('/admin/parents')
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
 // ─── Frais scolaires ──────────────────────────────────────────────────────────
 
 export async function getFeeTypes() {
@@ -1028,6 +1129,44 @@ export async function getStudentsForPayment() {
     LEFT JOIN classes c ON c.id = e.class_id
     ORDER BY u.last_name, u.first_name
   ` as Promise<any[]>
+}
+
+export async function generatePaymentLink(paymentId: string): Promise<ActionResult<{ url: string }>> {
+  try {
+    const { db, session } = await getDb()
+
+    const rows: any[] = await db.$queryRaw`
+      SELECT p.id, p.amount, p.status, p.student_id,
+             ft.name AS fee_name,
+             u.first_name || ' ' || u.last_name AS student_name,
+             ss.school_name
+      FROM payments p
+      JOIN fee_types ft ON ft.id = p.fee_type_id
+      JOIN students s ON s.id = p.student_id
+      JOIN users u ON u.id = s.user_id
+      LEFT JOIN school_settings ss ON TRUE
+      WHERE p.id = ${paymentId}
+      LIMIT 1
+    `
+    const payment = rows[0]
+    if (!payment) return { success: false, error: 'Paiement introuvable.' }
+    if (payment.status !== 'PENDING') return { success: false, error: 'Ce paiement n\'est pas en attente.' }
+
+    const token = await signPaymentToken({
+      paymentId:   payment.id,
+      schemaName:  session.user.schemaName,
+      studentId:   payment.student_id,
+      amount:      Number(payment.amount),
+      feeName:     payment.fee_name,
+      studentName: payment.student_name,
+      schoolName:  payment.school_name ?? 'Établissement',
+    })
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    return { success: true, data: { url: `${baseUrl}/paiement/${token}` } }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur.' }
+  }
 }
 
 // ─── Emploi du temps ──────────────────────────────────────────────────────────

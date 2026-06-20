@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { withMobileAuth } from '@/lib/auth/mobile-guard'
 
 export const GET = withMobileAuth(['STUDENT', 'PARENT'], async (req, { user, tenantDb }) => {
@@ -8,16 +9,16 @@ export const GET = withMobileAuth(['STUDENT', 'PARENT'], async (req, { user, ten
   try {
     if (user.role === 'PARENT' && !studentId) {
       // Tous les enfants du parent
-      const children: any[] = await tenantDb.$queryRawUnsafe(`
+      const children: any[] = await tenantDb.$queryRaw`
         SELECT ps.student_id
         FROM parent_students ps
         JOIN parents p ON p.id = ps.parent_id
-        WHERE p.user_id = '${user.userId.replace(/'/g, "''")}'
-      `)
+        WHERE p.user_id = ${user.userId}
+      `
       if (!children.length) return NextResponse.json({ payments: [] })
 
-      const ids = children.map((c: any) => `'${c.student_id}'`).join(', ')
-      const rows: any[] = await tenantDb.$queryRawUnsafe(`
+      const ids = children.map((c: any) => c.student_id as string)
+      const rows: any[] = await tenantDb.$queryRaw`
         SELECT
           p.id, p.amount, p.due_date, p.status,
           COALESCE(p.description, 'Frais scolaires') AS description,
@@ -26,44 +27,44 @@ export const GET = withMobileAuth(['STUDENT', 'PARENT'], async (req, { user, ten
         FROM payments p
         JOIN students s ON s.id = p.student_id
         JOIN users u    ON u.id = s.user_id
-        WHERE p.student_id IN (${ids})
+        WHERE p.student_id IN (${Prisma.join(ids)})
         ORDER BY p.created_at DESC
         LIMIT 50
-      `)
+      `
       return NextResponse.json({ payments: _format(rows, true) })
     }
 
     if (user.role === 'PARENT' && studentId) {
-      const check: any[] = await tenantDb.$queryRawUnsafe(`
+      const check: any[] = await tenantDb.$queryRaw`
         SELECT ps.id FROM parent_students ps
         JOIN parents p ON p.id = ps.parent_id
-        WHERE p.user_id = '${user.userId.replace(/'/g, "''")}' AND ps.student_id = '${studentId.replace(/'/g, "''")}'
+        WHERE p.user_id = ${user.userId} AND ps.student_id = ${studentId}
         LIMIT 1
-      `)
+      `
       if (!check[0]) return NextResponse.json({ error: 'Accès non autorisé.' }, { status: 403 })
     }
 
     // Élève : son propre studentId
     let targetId = studentId
     if (user.role === 'STUDENT') {
-      const rows: any[] = await tenantDb.$queryRawUnsafe(`
-        SELECT id FROM students WHERE user_id = '${user.userId.replace(/'/g, "''")}' LIMIT 1
-      `)
+      const rows: any[] = await tenantDb.$queryRaw`
+        SELECT id FROM students WHERE user_id = ${user.userId} LIMIT 1
+      `
       targetId = rows[0]?.id ?? null
     }
 
     if (!targetId) return NextResponse.json({ payments: [] })
 
-    const rows: any[] = await tenantDb.$queryRawUnsafe(`
+    const rows: any[] = await tenantDb.$queryRaw`
       SELECT
         p.id, p.amount, p.due_date, p.status,
         COALESCE(p.description, 'Frais scolaires') AS description,
         p.created_at
       FROM payments p
-      WHERE p.student_id = '${(targetId as string).replace(/'/g, "''")}'
+      WHERE p.student_id = ${targetId as string}
       ORDER BY p.created_at DESC
       LIMIT 50
-    `)
+    `
     return NextResponse.json({ payments: _format(rows, false) })
   } catch {
     return NextResponse.json({ payments: [] })

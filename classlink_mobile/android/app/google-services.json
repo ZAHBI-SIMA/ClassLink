@@ -1,14 +1,13 @@
 {
   "project_info": {
-    "project_number": "000000000000",
-    "firebase_url": "https://classlink-placeholder-default-rtdb.firebaseio.com",
-    "project_id": "classlink-placeholder",
-    "storage_bucket": "classlink-placeholder.appspot.com"
+    "project_number": "331706727558",
+    "project_id": "claink-dacb3",
+    "storage_bucket": "claink-dacb3.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "mobilesdk_app_id": "1:331706727558:android:435fccbe0d10fe17976507",
         "android_client_info": {
           "package_name": "com.classlink.classlink_mobile"
         }
@@ -16,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyPlaceholderKeyForBuildPurposesOnly0000"
+          "current_key": "AIzaSyChg28GRVJBSkiXElX2emnM7FWH0KKhTeg"
         }
       ],
       "services": {

@@ -9,6 +9,7 @@ const REDIRECT_MAP: Record<string, string> = {
   ADMIN: '/admin',
   CENSOR: '/admin/attendance',
   ACCOUNTANT: '/accountant/payments',
+  STAFF: '/admin',
   TEACHER: '/teacher',
   PARENT: '/parent',
   STUDENT: '/student',

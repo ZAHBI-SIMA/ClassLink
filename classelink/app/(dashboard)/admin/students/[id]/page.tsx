@@ -1,5 +1,6 @@
-import { getStudentById } from '@/actions/admin'
+import { getStudentById, getClasses } from '@/actions/admin'
 import { ResetStudentPasswordForm } from './reset-password-form'
+import { StudentActions } from './student-actions'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
@@ -10,10 +11,21 @@ interface Props {
 
 export default async function StudentDetailPage({ params }: Props) {
   const { id } = await params
-  const student = await getStudentById(id)
+  const [student, allClasses] = await Promise.all([
+    getStudentById(id),
+    getClasses(),
+  ])
   if (!student) notFound()
 
   const initials = `${student.first_name[0]}${student.last_name[0]}`
+  const fullName = `${student.first_name} ${student.last_name}`
+
+  // Classe courante dérivée de getStudentById (class_name) — on cherche l'id dans allClasses
+  const currentClass = student.class_name
+    ? (allClasses as any[]).find((c: any) => c.name === student.class_name)
+      ? { id: (allClasses as any[]).find((c: any) => c.name === student.class_name).id, name: student.class_name }
+      : null
+    : null
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -22,7 +34,7 @@ export default async function StudentDetailPage({ params }: Props) {
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Link href="/admin/students" className="hover:text-blue-600">Élèves</Link>
           <span>›</span>
-          <span className="text-gray-900 font-medium">{student.first_name} {student.last_name}</span>
+          <span className="text-gray-900 font-medium">{fullName}</span>
         </div>
         <Link
           href={`/admin/bulletin/${id}`}
@@ -45,9 +57,7 @@ export default async function StudentDetailPage({ params }: Props) {
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-gray-900">
-              {student.first_name} {student.last_name}
-            </h1>
+            <h1 className="text-xl font-bold text-gray-900">{fullName}</h1>
             <p className="text-sm text-gray-500">{student.email}</p>
             <div className="flex flex-wrap gap-2 mt-3">
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -100,6 +110,18 @@ export default async function StudentDetailPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Gestion classe + suppression */}
+      <StudentActions
+        studentId={id}
+        studentName={fullName}
+        currentClass={currentClass}
+        classes={(allClasses as any[]).map((c: any) => ({
+          id:         c.id,
+          name:       c.name,
+          level_name: c.level_name,
+        }))}
+      />
 
       {/* Réinitialisation mot de passe */}
       <ResetStudentPasswordForm userId={student.user_id} />

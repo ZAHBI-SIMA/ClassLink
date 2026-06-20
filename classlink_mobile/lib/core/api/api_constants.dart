@@ -15,4 +15,7 @@ class ApiConstants {
   static const String payments     = '/api/mobile/payments';
   static const String bulletins    = '/api/mobile/bulletins';
   static const String fcmRegister  = '/api/mobile/fcm/register';
+
+  static String paymentInitiate(String paymentId) =>
+      '/api/mobile/payments/$paymentId/initiate';
 }
