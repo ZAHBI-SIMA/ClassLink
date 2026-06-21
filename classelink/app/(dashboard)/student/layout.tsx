@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { StudentSidebar } from '@/components/layout/student-sidebar'
 import { SidebarProvider } from '@/components/layout/sidebar-context'
-import { MobileTopbar } from '@/components/layout/mobile-topbar'
+import { DashboardHeader } from '@/components/layout/dashboard-header'
 import { SchoolThemeFont, schoolThemeStyle } from '@/components/layout/school-theme'
 
 export const runtime = 'nodejs'
@@ -46,7 +46,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
       >
         <StudentSidebar studentName={studentName} className={className} logoUrl={theme.logo_url} slogan={theme.slogan} />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <MobileTopbar title={className || studentName} />
+          <DashboardHeader title={className || studentName} />
           <main className="flex-1 overflow-y-auto">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">{children}</div>
           </main>

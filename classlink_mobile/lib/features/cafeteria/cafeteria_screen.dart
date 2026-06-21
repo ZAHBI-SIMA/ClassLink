@@ -41,6 +41,10 @@ class CafeteriaScreen extends ConsumerWidget {
             byDay.putIfAbsent(day, () => []).add(menu);
           }
 
+          // Menu du jour (jour courant : 1 = lundi … 7 = dimanche)
+          final today      = DateTime.now().weekday;
+          final todayMenus = byDay[today] ?? const [];
+
           return RefreshIndicator(
             onRefresh: () => ref.refresh(cafeteriaProvider.future),
             child: ListView(
@@ -80,6 +84,35 @@ class CafeteriaScreen extends ConsumerWidget {
                 ),
 
                 const SizedBox(height: 20),
+
+                // ─── Menu du jour ───────────────────────────────────────────
+                Row(
+                  children: [
+                    const Icon(Icons.today_rounded, size: 16, color: Color(0xFFEA580C)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Menu du jour — ${today < _dayNames.length ? _dayNames[today] : ''}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textMain),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (todayMenus.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEA580C).withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFEA580C).withValues(alpha: 0.15)),
+                    ),
+                    child: const Text('Aucun menu prévu aujourd\'hui.',
+                      style: TextStyle(fontSize: 13, color: AppTheme.textSub)),
+                  )
+                else
+                  ...todayMenus.map((m) => _MenuTile(menu: m, highlight: true)),
+
+                const SizedBox(height: 24),
                 const Text('Menu de la semaine',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textMain)),
                 const SizedBox(height: 12),
@@ -115,37 +148,52 @@ class _DaySection extends StatelessWidget {
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSub),
         ),
       ),
-      ...menus.map((m) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEA580C).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                _mealLabels[m['mealType']] ?? (m['mealType'] as String? ?? ''),
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFEA580C)),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(child: Text(m['description'] ?? '', style: const TextStyle(fontSize: 13))),
-            if ((m['price'] as num? ?? 0) > 0)
-              Text(
-                NumberFormat('#,###').format(m['price']) + ' F',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSub),
-              ),
-          ],
-        ),
-      )),
+      ...menus.map((m) => _MenuTile(menu: m)),
       const SizedBox(height: 8),
     ],
   );
+}
+
+class _MenuTile extends StatelessWidget {
+  final Map<String, dynamic> menu;
+  final bool highlight;
+  const _MenuTile({required this.menu, this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    const orange = Color(0xFFEA580C);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: highlight ? orange.withValues(alpha: 0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: highlight ? orange.withValues(alpha: 0.35) : AppTheme.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              _mealLabels[menu['mealType']] ?? (menu['mealType'] as String? ?? ''),
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: orange),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(menu['description'] ?? '', style: const TextStyle(fontSize: 13))),
+          if ((menu['price'] as num? ?? 0) > 0)
+            Text(
+              '${NumberFormat('#,###').format(menu['price'])} F',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSub),
+            ),
+        ],
+      ),
+    );
+  }
 }

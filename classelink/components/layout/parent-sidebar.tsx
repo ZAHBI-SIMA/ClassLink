@@ -7,7 +7,7 @@ import { SidebarShell } from './sidebar-shell'
 import { CollapseToggle } from './collapse-toggle'
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed'
 
-const CATEGORY_ORDER = ['Suivi scolaire', 'Vie scolaire', 'Communication']
+const CATEGORY_ORDER = ['Suivi scolaire', 'Finances', 'Vie scolaire', 'Communication']
 
 const NAV = [
   {
@@ -65,10 +65,16 @@ const NAV = [
     ],
   },
   {
+    href: '/parent/payments',
+    label: 'Frais scolaires',
+    category: 'Finances',
+    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>,
+  },
+  {
     href: '/parent/cafeteria',
     label: 'Cantine',
     category: 'Vie scolaire',
-    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 3v5m4-5v5m-2-5v5m-2 0h4m-2 0v13M16 3v18m0-18c-2 2-2 6 0 8" /></svg>,
   },
   {
     href: '/parent/trips',

@@ -14,7 +14,7 @@ type NavItem = {
   icon: React.ReactNode
 }
 
-const CATEGORY_ORDER = ['Scolarité', 'Travail', 'Motivation', 'Communication']
+const CATEGORY_ORDER = ['Scolarité', 'Travail', 'Motivation', 'Vie scolaire', 'Communication']
 
 const NAV: NavItem[] = [
   {
@@ -87,6 +87,12 @@ const NAV: NavItem[] = [
     label: 'Objectifs',
     category: 'Travail',
     icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+  },
+  {
+    href: '/student/cafeteria',
+    label: 'Cantine',
+    category: 'Vie scolaire',
+    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 3v5m4-5v5m-2-5v5m-2 0h4m-2 0v13M16 3v18m0-18c-2 2-2 6 0 8" /></svg>,
   },
   {
     href: '/student/messages',

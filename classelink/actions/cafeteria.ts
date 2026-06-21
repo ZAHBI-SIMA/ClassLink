@@ -162,6 +162,30 @@ export async function updateSubscriptionStatus(
   }
 }
 
+// ─── Cantine de l'élève connecté (STUDENT) ───────────────────────────────────
+export async function getStudentCafeteria(): Promise<{ subscription: any; menus: any[] }> {
+  const session = await requireRole('STUDENT')
+  const db = getTenantPrisma(session.user.schemaName) as any
+
+  const [menus, sub] = await Promise.all([
+    db.$queryRaw`
+      SELECT cm.id, cm.week_start, cm.day_of_week, cm.meal_type, cm.description, cm.price
+      FROM cafeteria_menus cm
+      WHERE cm.week_start = date_trunc('week', NOW())::date
+      ORDER BY cm.day_of_week, cm.meal_type
+    ` as Promise<any[]>,
+    db.$queryRaw`
+      SELECT cs.id, cs.meal_type, cs.start_date, cs.status, cs.amount_paid
+      FROM cafeteria_subscriptions cs
+      JOIN students s ON s.id = cs.student_id
+      WHERE s.user_id = ${session.user.id} AND cs.status = 'ACTIVE'
+      LIMIT 1
+    ` as Promise<any[]>,
+  ])
+
+  return { subscription: sub[0] ?? null, menus }
+}
+
 // ─── Infos cantine d'un élève (PARENT) ───────────────────────────────────────
 export async function getStudentCafeteriaInfo(
   studentId: string

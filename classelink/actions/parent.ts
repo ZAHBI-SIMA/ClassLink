@@ -471,3 +471,29 @@ export async function initiateOnlinePayment(
     return { success: false, error: e?.message ?? 'Erreur lors de l\'initiation du paiement.' }
   }
 }
+
+// ─── Frais scolaires : tous les paiements de tous les enfants du parent ────────
+export async function getParentPayments() {
+  const { db, session } = await getParentDb()
+  return withRetry(() => db.$queryRaw`
+    SELECT p.id, p.amount, p.status, p.provider, p.provider_ref, p.receipt,
+           p.paid_at, p.due_date, p.created_at,
+           ft.name AS fee_name,
+           s.id    AS student_id,
+           u.first_name, u.last_name, u.avatar_url,
+           c.name  AS class_name
+    FROM payments p
+    JOIN fee_types ft       ON ft.id = p.fee_type_id
+    JOIN students s         ON s.id = p.student_id
+    JOIN users u            ON u.id = s.user_id
+    JOIN parent_students ps ON ps.student_id = s.id
+    JOIN parents pa         ON pa.id = ps.parent_id
+    LEFT JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+    LEFT JOIN classes c     ON c.id = e.class_id
+    WHERE pa.user_id = ${session.user.id}
+    ORDER BY
+      CASE WHEN p.status = 'PENDING' THEN 0 ELSE 1 END,
+      p.due_date ASC NULLS LAST,
+      p.created_at DESC
+  ` as Promise<any[]>)
+}
