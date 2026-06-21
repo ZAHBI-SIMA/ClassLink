@@ -2,19 +2,42 @@
 
 import { SidebarLink } from './sidebar-link'
 import { SidebarShell } from './sidebar-shell'
+import { CollapseToggle } from './collapse-toggle'
 import { logoutAction } from '@/actions/auth'
 import { featureForPath, hasFeature } from '@/lib/plan/features'
 import { moduleForPath } from '@/lib/permissions/modules'
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed'
 
 type Role = 'ADMIN' | 'CENSOR' | 'ACCOUNTANT' | 'TEACHER' | 'STAFF'
+
+type Category =
+  | 'Scolarité'
+  | 'Personnes'
+  | 'Pédagogie'
+  | 'Vie scolaire'
+  | 'Finances'
+  | 'Communication'
+  | 'Système'
 
 interface NavItem {
   label: string
   href: string
   exact?: boolean
   roles?: Role[] // undefined = accessible à tous les rôles admin
+  category?: Category // undefined = section générale (en haut, sans titre)
   icon: React.ReactNode
 }
+
+// Ordre d'affichage des catégories dans le menu
+const CATEGORY_ORDER: Category[] = [
+  'Scolarité',
+  'Personnes',
+  'Pédagogie',
+  'Vie scolaire',
+  'Finances',
+  'Communication',
+  'Système',
+]
 
 const NAV: NavItem[] = [
   {
@@ -31,6 +54,7 @@ const NAV: NavItem[] = [
   {
     label: 'Années scolaires',
     href: '/admin/academic-years',
+    category: 'Scolarité',
     roles: ['ADMIN'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,6 +66,7 @@ const NAV: NavItem[] = [
   {
     label: 'Classes',
     href: '/admin/classes',
+    category: 'Scolarité',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,6 +78,7 @@ const NAV: NavItem[] = [
   {
     label: 'Matières',
     href: '/admin/subjects',
+    category: 'Scolarité',
     roles: ['ADMIN'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,6 +90,7 @@ const NAV: NavItem[] = [
   {
     label: 'Enseignants',
     href: '/admin/teachers',
+    category: 'Personnes',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,6 +102,7 @@ const NAV: NavItem[] = [
   {
     label: 'Élèves',
     href: '/admin/students',
+    category: 'Personnes',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,6 +114,7 @@ const NAV: NavItem[] = [
   {
     label: 'Parents',
     href: '/admin/parents',
+    category: 'Personnes',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -97,6 +126,7 @@ const NAV: NavItem[] = [
   {
     label: 'Présences',
     href: '/admin/attendance',
+    category: 'Vie scolaire',
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -107,6 +137,7 @@ const NAV: NavItem[] = [
   {
     label: 'Notes & Moyennes',
     href: '/admin/grades',
+    category: 'Pédagogie',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,6 +150,7 @@ const NAV: NavItem[] = [
     label: 'Paiements',
     href: '/admin/payments',
     roles: ['ADMIN', 'ACCOUNTANT'],
+    category: 'Finances',
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -129,6 +161,7 @@ const NAV: NavItem[] = [
   {
     label: 'Frais scolaires',
     href: '/admin/fees',
+    category: 'Finances',
     roles: ['ADMIN', 'ACCOUNTANT'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,6 +173,7 @@ const NAV: NavItem[] = [
   {
     label: 'Emploi du temps',
     href: '/admin/schedule',
+    category: 'Scolarité',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,6 +185,7 @@ const NAV: NavItem[] = [
   {
     label: 'Annonces',
     href: '/admin/announcements',
+    category: 'Communication',
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -161,6 +196,7 @@ const NAV: NavItem[] = [
   {
     label: 'Sanctions',
     href: '/admin/sanctions',
+    category: 'Vie scolaire',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,6 +208,7 @@ const NAV: NavItem[] = [
   {
     label: 'Analytics',
     href: '/admin/analytics',
+    category: 'Finances',
     roles: ['ADMIN', 'CENSOR', 'ACCOUNTANT'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -183,6 +220,7 @@ const NAV: NavItem[] = [
   {
     label: 'Rapport financier',
     href: '/admin/payments/report',
+    category: 'Finances',
     roles: ['ADMIN', 'ACCOUNTANT'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -194,6 +232,7 @@ const NAV: NavItem[] = [
   {
     label: 'Conseil de classe',
     href: '/admin/councils',
+    category: 'Scolarité',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,6 +244,7 @@ const NAV: NavItem[] = [
   {
     label: 'Inscriptions',
     href: '/admin/enrollments',
+    category: 'Scolarité',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,6 +256,7 @@ const NAV: NavItem[] = [
   {
     label: 'Bibliothèque',
     href: '/admin/library',
+    category: 'Pédagogie',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -227,6 +268,7 @@ const NAV: NavItem[] = [
   {
     label: 'Cantine',
     href: '/admin/cafeteria',
+    category: 'Vie scolaire',
     roles: ['ADMIN'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -238,6 +280,7 @@ const NAV: NavItem[] = [
   {
     label: 'Ressources',
     href: '/admin/resources',
+    category: 'Pédagogie',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -249,6 +292,7 @@ const NAV: NavItem[] = [
   {
     label: 'Sorties',
     href: '/admin/trips',
+    category: 'Vie scolaire',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -260,6 +304,7 @@ const NAV: NavItem[] = [
   {
     label: 'Alertes',
     href: '/admin/alerts',
+    category: 'Vie scolaire',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -271,6 +316,7 @@ const NAV: NavItem[] = [
   {
     label: 'Messages',
     href: '/admin/messages',
+    category: 'Communication',
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -281,6 +327,7 @@ const NAV: NavItem[] = [
   {
     label: 'Récompenses',
     href: '/admin/rewards',
+    category: 'Vie scolaire',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -292,6 +339,7 @@ const NAV: NavItem[] = [
   {
     label: 'Convocations',
     href: '/admin/convocations',
+    category: 'Vie scolaire',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -303,6 +351,7 @@ const NAV: NavItem[] = [
   {
     label: 'Bourses',
     href: '/admin/scholarships',
+    category: 'Finances',
     roles: ['ADMIN', 'ACCOUNTANT'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -314,6 +363,7 @@ const NAV: NavItem[] = [
   {
     label: 'Agenda',
     href: '/admin/agenda',
+    category: 'Scolarité',
     roles: ['ADMIN', 'CENSOR'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -325,6 +375,7 @@ const NAV: NavItem[] = [
   {
     label: 'Paramètres',
     href: '/admin/settings',
+    category: 'Système',
     roles: ['ADMIN'],
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -361,6 +412,7 @@ export function AdminSidebar({
   allowedModules?: string[]
 }) {
   const userRole = (role as Role) || 'ADMIN'
+  const { collapsed, toggle } = useSidebarCollapsed()
 
   const visibleNav = NAV.filter(item => {
     // Filtre par forfait (commun à tous)
@@ -379,9 +431,19 @@ export function AdminSidebar({
     return true
   })
 
+  // Entrées générales (sans catégorie) affichées en premier, sans titre
+  const generalNav = visibleNav.filter(item => !item.category)
+  // Regroupe les entrées restantes par catégorie, en respectant CATEGORY_ORDER
+  const groupedNav = CATEGORY_ORDER
+    .map(category => ({
+      category,
+      items: visibleNav.filter(item => item.category === category),
+    }))
+    .filter(group => group.items.length > 0)
+
   return (
-    <SidebarShell className="w-64 flex-shrink-0 border-r border-gray-200 bg-white">
-      <div className="h-16 flex items-center px-5 border-b border-gray-200">
+    <SidebarShell className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 border-r border-gray-200 bg-white transition-all duration-200`}>
+      <div className={`h-16 flex items-center border-b border-gray-200 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
         <div className="flex items-center gap-2.5 min-w-0">
           {logoUrl ? (
             <img src={logoUrl} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
@@ -393,35 +455,59 @@ export function AdminSidebar({
               </svg>
             </div>
           )}
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900 leading-tight truncate">
-              {schoolName ?? 'ClasseLink'}
-            </p>
-            <p className="text-[10px] text-primary font-medium uppercase tracking-wide truncate">
-              {slogan || ROLE_LABELS[userRole] || 'Administration'}
-            </p>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-gray-900 leading-tight truncate">
+                {schoolName ?? 'ClasseLink'}
+              </p>
+              <p className="text-[10px] text-primary font-medium uppercase tracking-wide truncate">
+                {slogan || ROLE_LABELS[userRole] || 'Administration'}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-        {visibleNav.map(item => (
-          <SidebarLink key={item.href} {...item} />
+      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+        {/* Entrées générales (Tableau de bord…) */}
+        <div className="space-y-0.5">
+          {generalNav.map(item => (
+            <SidebarLink key={item.href} {...item} collapsed={collapsed} />
+          ))}
+        </div>
+
+        {/* Sections regroupées par catégorie */}
+        {groupedNav.map(group => (
+          <div key={group.category} className={collapsed ? 'pt-2 border-t border-gray-100 mt-2' : 'pt-3'}>
+            {!collapsed && (
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {group.category}
+              </p>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map(item => (
+                <SidebarLink key={item.href} {...item} collapsed={collapsed} />
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
-      <div className="p-3 border-t border-gray-200">
+      <div className="p-3 border-t border-gray-200 space-y-0.5">
+        <CollapseToggle collapsed={collapsed} onToggle={toggle} />
         <form action={logoutAction}>
           <button
             type="submit"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-                       text-red-600 hover:bg-red-50 transition-colors"
+            title={collapsed ? 'Déconnexion' : undefined}
+            className={`w-full flex items-center gap-3 rounded-lg text-sm font-medium
+                       text-red-600 hover:bg-red-50 transition-colors
+                       ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'}`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            Déconnexion
+            {!collapsed && 'Déconnexion'}
           </button>
         </form>
       </div>

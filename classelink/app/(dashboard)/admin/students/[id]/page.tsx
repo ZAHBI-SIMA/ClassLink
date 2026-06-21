@@ -1,6 +1,8 @@
-import { getStudentById, getClasses } from '@/actions/admin'
+import { getStudentById, getClasses, getTerms } from '@/actions/admin'
+import { getBulletinData } from '@/actions/bulletin'
 import { ResetStudentPasswordForm } from './reset-password-form'
 import { StudentActions } from './student-actions'
+import { StudentBulletin, type TermBulletin } from './student-bulletin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
@@ -11,11 +13,26 @@ interface Props {
 
 export default async function StudentDetailPage({ params }: Props) {
   const { id } = await params
-  const [student, allClasses] = await Promise.all([
+  const [student, allClasses, terms] = await Promise.all([
     getStudentById(id),
     getClasses(),
+    getTerms(),
   ])
   if (!student) notFound()
+
+  // Bulletin de chaque trimestre de l'année courante (en parallèle)
+  const bulletins: TermBulletin[] = await Promise.all(
+    (terms as any[]).map(async (t): Promise<TermBulletin> => {
+      const res = await getBulletinData(id, t.id)
+      return {
+        termId: t.id,
+        termName: t.name,
+        termOrder: t.term_order,
+        data: res.success ? res.data : null,
+        error: res.success ? null : (res.error ?? 'Erreur de chargement du bulletin.'),
+      }
+    })
+  )
 
   const initials = `${student.first_name[0]}${student.last_name[0]}`
   const fullName = `${student.first_name} ${student.last_name}`
@@ -28,7 +45,7 @@ export default async function StudentDetailPage({ params }: Props) {
     : null
 
   return (
-    <div className="max-w-2xl space-y-5">
+    <div className="max-w-5xl space-y-5">
       {/* Breadcrumb + actions */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -122,6 +139,9 @@ export default async function StudentDetailPage({ params }: Props) {
           level_name: c.level_name,
         }))}
       />
+
+      {/* Bulletin par trimestre (intégré) */}
+      <StudentBulletin studentId={id} bulletins={bulletins} />
 
       {/* Réinitialisation mot de passe */}
       <ResetStudentPasswordForm userId={student.user_id} />

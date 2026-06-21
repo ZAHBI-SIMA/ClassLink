@@ -360,7 +360,7 @@ export async function getClassGradesExport(
       JOIN terms t ON t.id = g.term_id
       JOIN enrollments e ON e.student_id = st.id AND e.class_id = ${classId}
       WHERE g.subject_id = ${subjectId}
-        AND (${termIdVal} IS NULL OR g.term_id = ${termIdVal})
+        AND (${termIdVal}::text IS NULL OR g.term_id = ${termIdVal})
       ORDER BY u.last_name, u.first_name, t.term_order, g.published_at
     `
     return { success: true, data: rows }

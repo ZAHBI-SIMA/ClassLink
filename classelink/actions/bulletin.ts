@@ -90,28 +90,12 @@ async function fetchBulletinData(
       SELECT
         sub.id   AS subject_id,
         sub.name AS subject_name,
-        COALESCE(ls.coefficient, 1)::float                             AS coefficient,
+        COALESCE(ls.coefficient, 1)::float AS coefficient,
         ROUND(
           SUM(g.value * g.coefficient)::numeric / NULLIF(SUM(g.coefficient), 0),
           2
-        )                                                              AS subject_avg,
-        COUNT(g.id)::int                                               AS grade_count,
-        (
-          SELECT COUNT(*) + 1
-          FROM (
-            SELECT
-              SUM(g2.value * g2.coefficient) / NULLIF(SUM(g2.coefficient), 0) AS avg2
-            FROM grades g2
-            JOIN enrollments e2 ON e2.student_id = g2.student_id AND e2.status = 'ACTIVE'
-            WHERE g2.subject_id = g.subject_id
-              AND g2.term_id    = ${termId}
-              AND e2.class_id   = ${student.class_id}
-              AND g2.student_id != ${studentId}
-            GROUP BY g2.student_id
-            HAVING SUM(g2.value * g2.coefficient) / NULLIF(SUM(g2.coefficient), 0)
-                 > SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0)
-          ) ranked
-        )::int AS rank_in_class
+        ) AS subject_avg,
+        COUNT(g.id)::int AS grade_count
       FROM grades g
       JOIN subjects sub ON sub.id = g.subject_id
       LEFT JOIN level_subjects ls
@@ -119,7 +103,7 @@ async function fetchBulletinData(
         AND ls.level_id  = ${student.level_id}
       WHERE g.student_id = ${studentId}
         AND g.term_id    = ${termId}
-      GROUP BY sub.id, sub.name, ls.coefficient, g.subject_id
+      GROUP BY sub.id, sub.name, ls.coefficient
       ORDER BY sub.name
     `
 
@@ -127,21 +111,22 @@ async function fetchBulletinData(
     const avgRows: any[] = await db.$queryRaw`
       SELECT
         ROUND(
-          SUM(
-            (SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0))
-            * COALESCE(ls.coefficient, 1)
-          )::numeric
-          / NULLIF(SUM(COALESCE(ls.coefficient, 1)), 0),
+          SUM(t.subject_avg * t.coef)::numeric / NULLIF(SUM(t.coef), 0),
           2
         ) AS general_average
-      FROM grades g
-      JOIN subjects sub ON sub.id = g.subject_id
-      LEFT JOIN level_subjects ls
-        ON ls.subject_id = g.subject_id
-        AND ls.level_id  = ${student.level_id}
-      WHERE g.student_id = ${studentId}
-        AND g.term_id    = ${termId}
-      GROUP BY g.student_id
+      FROM (
+        SELECT
+          g.subject_id,
+          SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0) AS subject_avg,
+          COALESCE(ls.coefficient, 1) AS coef
+        FROM grades g
+        LEFT JOIN level_subjects ls
+          ON ls.subject_id = g.subject_id
+          AND ls.level_id  = ${student.level_id}
+        WHERE g.student_id = ${studentId}
+          AND g.term_id    = ${termId}
+        GROUP BY g.subject_id, ls.coefficient
+      ) t
     `
     const general_average = avgRows[0]?.general_average ?? null
 
@@ -151,20 +136,24 @@ async function fetchBulletinData(
         ROUND(AVG(student_avg)::numeric, 2) AS class_average
       FROM (
         SELECT
-          g.student_id,
-          SUM(
-            (SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0))
-            * COALESCE(ls.coefficient, 1)
-          ) / NULLIF(SUM(COALESCE(ls.coefficient, 1)), 0) AS student_avg
-        FROM grades g
-        JOIN enrollments e ON e.student_id = g.student_id AND e.status = 'ACTIVE'
-        JOIN subjects sub  ON sub.id = g.subject_id
-        LEFT JOIN level_subjects ls
-          ON ls.subject_id = g.subject_id
-          AND ls.level_id  = ${student.level_id}
-        WHERE g.term_id   = ${termId}
-          AND e.class_id  = ${student.class_id}
-        GROUP BY g.student_id
+          t.student_id,
+          SUM(t.subject_avg * t.coef) / NULLIF(SUM(t.coef), 0) AS student_avg
+        FROM (
+          SELECT
+            g.student_id,
+            g.subject_id,
+            SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0) AS subject_avg,
+            COALESCE(ls.coefficient, 1) AS coef
+          FROM grades g
+          JOIN enrollments e ON e.student_id = g.student_id AND e.status = 'ACTIVE'
+          LEFT JOIN level_subjects ls
+            ON ls.subject_id = g.subject_id
+            AND ls.level_id  = ${student.level_id}
+          WHERE g.term_id   = ${termId}
+            AND e.class_id  = ${student.class_id}
+          GROUP BY g.student_id, g.subject_id, ls.coefficient
+        ) t
+        GROUP BY t.student_id
       ) class_avgs
     `
     const class_average = classAvgRows[0]?.class_average ?? null
@@ -174,23 +163,25 @@ async function fetchBulletinData(
       SELECT COUNT(*) + 1 AS rank
       FROM (
         SELECT
-          g.student_id,
-          SUM(
-            (SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0))
-            * COALESCE(ls.coefficient, 1)
-          ) / NULLIF(SUM(COALESCE(ls.coefficient, 1)), 0) AS student_avg
-        FROM grades g
-        JOIN enrollments e ON e.student_id = g.student_id AND e.status = 'ACTIVE'
-        LEFT JOIN level_subjects ls
-          ON ls.subject_id = g.subject_id
-          AND ls.level_id  = ${student.level_id}
-        WHERE g.term_id  = ${termId}
-          AND e.class_id = ${student.class_id}
-        GROUP BY g.student_id
-        HAVING SUM(
-          (SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0))
-          * COALESCE(ls.coefficient, 1)
-        ) / NULLIF(SUM(COALESCE(ls.coefficient, 1)), 0) > ${general_average ?? 0}
+          t.student_id,
+          SUM(t.subject_avg * t.coef) / NULLIF(SUM(t.coef), 0) AS student_avg
+        FROM (
+          SELECT
+            g.student_id,
+            g.subject_id,
+            SUM(g.value * g.coefficient) / NULLIF(SUM(g.coefficient), 0) AS subject_avg,
+            COALESCE(ls.coefficient, 1) AS coef
+          FROM grades g
+          JOIN enrollments e ON e.student_id = g.student_id AND e.status = 'ACTIVE'
+          LEFT JOIN level_subjects ls
+            ON ls.subject_id = g.subject_id
+            AND ls.level_id  = ${student.level_id}
+          WHERE g.term_id  = ${termId}
+            AND e.class_id = ${student.class_id}
+          GROUP BY g.student_id, g.subject_id, ls.coefficient
+        ) t
+        GROUP BY t.student_id
+        HAVING SUM(t.subject_avg * t.coef) / NULLIF(SUM(t.coef), 0) > ${general_average ?? 0}::numeric
       ) better_students
     `
     const rank = rankRows[0]?.rank ?? null

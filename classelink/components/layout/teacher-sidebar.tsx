@@ -4,8 +4,19 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logoutAction } from '@/actions/auth'
 import { SidebarShell } from './sidebar-shell'
+import { CollapseToggle } from './collapse-toggle'
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed'
 
-const NAV = [
+type NavItem = {
+  href: string
+  label: string
+  category?: string // undefined = section générale (en haut, sans titre)
+  icon: React.ReactNode
+}
+
+const CATEGORY_ORDER = ['Pédagogie', 'Vie de classe', 'Communication', 'Pilotage']
+
+const NAV: NavItem[] = [
   {
     href: '/teacher',
     label: 'Tableau de bord',
@@ -19,6 +30,7 @@ const NAV = [
   {
     href: '/teacher/grades',
     label: 'Saisie des notes',
+    category: 'Pédagogie',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -29,6 +41,7 @@ const NAV = [
   {
     href: '/teacher/attendance',
     label: 'Appel & Présences',
+    category: 'Vie de classe',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -39,6 +52,7 @@ const NAV = [
   {
     href: '/teacher/schedule',
     label: 'Emploi du temps',
+    category: 'Vie de classe',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -49,6 +63,7 @@ const NAV = [
   {
     href: '/teacher/assignments',
     label: 'Devoirs',
+    category: 'Pédagogie',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -59,6 +74,7 @@ const NAV = [
   {
     href: '/teacher/lessons',
     label: 'Cahier de texte',
+    category: 'Pédagogie',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -69,6 +85,7 @@ const NAV = [
   {
     href: '/teacher/messages',
     label: 'Messages',
+    category: 'Communication',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -79,6 +96,7 @@ const NAV = [
   {
     href: '/teacher/resources',
     label: 'Ressources',
+    category: 'Pédagogie',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -89,6 +107,7 @@ const NAV = [
   {
     href: '/teacher/trips',
     label: 'Sorties',
+    category: 'Vie de classe',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -99,6 +118,7 @@ const NAV = [
   {
     href: '/teacher/quiz',
     label: 'Quiz & QCM',
+    category: 'Pédagogie',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -109,6 +129,7 @@ const NAV = [
   {
     href: '/teacher/analytics',
     label: 'Analytiques',
+    category: 'Pilotage',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -127,57 +148,93 @@ interface Props {
 
 export function TeacherSidebar({ teacherName, schoolName, logoUrl, slogan }: Props) {
   const pathname = usePathname()
+  const { collapsed, toggle } = useSidebarCollapsed()
+
+  const renderLink = (item: NavItem) => {
+    const active = item.href === '/teacher'
+      ? pathname === '/teacher'
+      : pathname.startsWith(item.href)
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        title={collapsed ? item.label : undefined}
+        className={`flex items-center gap-2.5 rounded-lg text-sm font-medium transition ${
+          collapsed ? 'justify-center px-0 py-2' : 'px-3 py-2'
+        } ${
+          active
+            ? 'bg-blue-50 text-blue-700'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+        }`}
+      >
+        {item.icon}
+        {!collapsed && item.label}
+      </Link>
+    )
+  }
+
+  const generalNav = NAV.filter(item => !item.category)
+  const groupedNav = CATEGORY_ORDER
+    .map(category => ({ category, items: NAV.filter(item => item.category === category) }))
+    .filter(group => group.items.length > 0)
 
   return (
-    <SidebarShell className="w-56 flex-shrink-0 bg-white border-r border-gray-200">
+    <SidebarShell className={`${collapsed ? 'w-16' : 'w-56'} flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-200`}>
       {/* En-tête */}
-      <div className="px-5 py-4 border-b border-gray-100">
-        {logoUrl && (
-          <img src={logoUrl} alt="" className="w-7 h-7 rounded-lg object-cover mb-2" />
-        )}
-        <p className="text-xs font-semibold text-primary uppercase tracking-wide">{slogan || 'Enseignant'}</p>
-        <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">{teacherName}</p>
-        {schoolName && (
-          <p className="text-xs text-gray-400 truncate">{schoolName}</p>
+      <div className={`border-b border-gray-100 ${collapsed ? 'px-2 py-4 text-center' : 'px-5 py-4'}`}>
+        {collapsed ? (
+          logoUrl ? (
+            <img src={logoUrl} alt="" className="w-7 h-7 rounded-lg object-cover mx-auto" />
+          ) : (
+            <p className="text-xs font-bold text-primary uppercase">Ens.</p>
+          )
+        ) : (
+          <>
+            {logoUrl && <img src={logoUrl} alt="" className="w-7 h-7 rounded-lg object-cover mb-2" />}
+            <p className="text-xs font-semibold text-primary uppercase tracking-wide">{slogan || 'Enseignant'}</p>
+            <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">{teacherName}</p>
+            {schoolName && (
+              <p className="text-xs text-gray-400 truncate">{schoolName}</p>
+            )}
+          </>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {NAV.map(item => {
-          const active = item.href === '/teacher'
-            ? pathname === '/teacher'
-            : pathname.startsWith(item.href)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition ${
-                active
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          )
-        })}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <div className="space-y-0.5">
+          {generalNav.map(renderLink)}
+        </div>
+        {groupedNav.map(group => (
+          <div key={group.category} className={collapsed ? 'pt-2 border-t border-gray-100 mt-2' : 'pt-3'}>
+            {!collapsed && (
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {group.category}
+              </p>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map(renderLink)}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      {/* Déconnexion */}
-      <div className="px-3 pb-4">
+      {/* Réduire + Déconnexion */}
+      <div className="px-3 pb-4 space-y-0.5">
+        <CollapseToggle collapsed={collapsed} onToggle={toggle} />
         <form action={logoutAction}>
           <button
             type="submit"
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm
-                       font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition"
+            title={collapsed ? 'Déconnexion' : undefined}
+            className={`w-full flex items-center gap-2.5 rounded-lg text-sm
+                       font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition
+                       ${collapsed ? 'justify-center px-0 py-2' : 'px-3 py-2'}`}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            Déconnexion
+            {!collapsed && 'Déconnexion'}
           </button>
         </form>
       </div>

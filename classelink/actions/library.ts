@@ -118,8 +118,7 @@ export async function updateBook(
           category    = ${category ?? null},
           quantity    = ${quantity},
           location    = ${location ?? null},
-          description = ${description ?? null},
-          updated_at  = NOW()
+          description = ${description ?? null}
       WHERE id = ${bookId}
     `
     revalidatePath('/admin/library')
@@ -171,12 +170,15 @@ export async function loanBook(
     if (book.available <= 0) return { success: false, error: 'Aucun exemplaire disponible.' }
 
     const rows: any[] = await db.$queryRaw`
-      INSERT INTO book_loans (book_id, borrower_type, borrower_id, due_date, status, loaned_at)
-      VALUES (${bookId}, ${borrowerType}, ${borrowerId}, ${new Date(dueDate)}, 'ACTIVE', NOW())
+      INSERT INTO book_loans (book_id, student_id, teacher_id, due_date, status, loaned_at)
+      VALUES (${bookId},
+              ${borrowerType === 'student' ? borrowerId : null},
+              ${borrowerType === 'teacher' ? borrowerId : null},
+              ${new Date(dueDate)}, 'ACTIVE', NOW())
       RETURNING id
     `
     await db.$executeRaw`
-      UPDATE books SET available = available - 1, updated_at = NOW()
+      UPDATE books SET available = available - 1
       WHERE id = ${bookId}
     `
     revalidatePath('/admin/library')
@@ -200,11 +202,11 @@ export async function returnBook(loanId: string): Promise<ActionResult> {
 
     await db.$executeRaw`
       UPDATE book_loans
-      SET status = 'RETURNED', returned_at = NOW(), updated_at = NOW()
+      SET status = 'RETURNED', returned_at = NOW()
       WHERE id = ${loanId}
     `
     await db.$executeRaw`
-      UPDATE books SET available = available + 1, updated_at = NOW()
+      UPDATE books SET available = available + 1
       WHERE id = ${loan.book_id}
     `
     revalidatePath('/admin/library')
@@ -220,19 +222,19 @@ export async function getActiveLoans(): Promise<any[]> {
 
   const rows: any[] = await db.$queryRaw`
     SELECT
-      bl.id, bl.borrower_type, bl.borrower_id, bl.loaned_at, bl.due_date, bl.status,
+      bl.id, bl.student_id, bl.teacher_id, bl.loaned_at, bl.due_date, bl.status,
       b.title AS book_title, b.author,
-      CASE bl.borrower_type
-        WHEN 'student' THEN (
-          SELECT u.first_name || ' ' || u.last_name
-          FROM students s JOIN users u ON u.id = s.user_id WHERE s.id = bl.borrower_id
-        )
-        WHEN 'teacher' THEN (
-          SELECT u.first_name || ' ' || u.last_name
-          FROM teachers t JOIN users u ON u.id = t.user_id WHERE t.id = bl.borrower_id
-        )
+      CASE
+        WHEN bl.student_id IS NOT NULL THEN 'student'
+        WHEN bl.teacher_id IS NOT NULL THEN 'teacher'
         ELSE NULL
-      END AS borrower_name
+      END AS borrower_type,
+      COALESCE(
+        (SELECT u.first_name || ' ' || u.last_name
+           FROM students s JOIN users u ON u.id = s.user_id WHERE s.id = bl.student_id),
+        (SELECT u.first_name || ' ' || u.last_name
+           FROM teachers t JOIN users u ON u.id = t.user_id WHERE t.id = bl.teacher_id)
+      ) AS borrower_name
     FROM book_loans bl
     JOIN books b ON b.id = bl.book_id
     WHERE bl.status = 'ACTIVE'
@@ -248,26 +250,26 @@ export async function getOverdueLoans(): Promise<any[]> {
   // Mettre à jour le statut des prêts en retard
   await db.$executeRaw`
     UPDATE book_loans
-    SET status = 'OVERDUE', updated_at = NOW()
+    SET status = 'OVERDUE'
     WHERE status = 'ACTIVE' AND due_date < NOW()
   `
 
   const rows: any[] = await db.$queryRaw`
     SELECT
-      bl.id, bl.borrower_type, bl.borrower_id, bl.loaned_at, bl.due_date, bl.status,
+      bl.id, bl.student_id, bl.teacher_id, bl.loaned_at, bl.due_date, bl.status,
       b.title AS book_title, b.author,
-      CASE bl.borrower_type
-        WHEN 'student' THEN (
-          SELECT u.first_name || ' ' || u.last_name
-          FROM students s JOIN users u ON u.id = s.user_id WHERE s.id = bl.borrower_id
-        )
-        WHEN 'teacher' THEN (
-          SELECT u.first_name || ' ' || u.last_name
-          FROM teachers t JOIN users u ON u.id = t.user_id WHERE t.id = bl.borrower_id
-        )
+      CASE
+        WHEN bl.student_id IS NOT NULL THEN 'student'
+        WHEN bl.teacher_id IS NOT NULL THEN 'teacher'
         ELSE NULL
-      END AS borrower_name,
-      NOW() - bl.due_date AS overdue_duration
+      END AS borrower_type,
+      COALESCE(
+        (SELECT u.first_name || ' ' || u.last_name
+           FROM students s JOIN users u ON u.id = s.user_id WHERE s.id = bl.student_id),
+        (SELECT u.first_name || ' ' || u.last_name
+           FROM teachers t JOIN users u ON u.id = t.user_id WHERE t.id = bl.teacher_id)
+      ) AS borrower_name,
+      (NOW() - bl.due_date)::text AS overdue_duration
     FROM book_loans bl
     JOIN books b ON b.id = bl.book_id
     WHERE bl.status = 'OVERDUE'

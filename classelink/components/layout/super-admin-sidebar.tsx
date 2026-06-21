@@ -2,7 +2,11 @@
 
 import { SidebarLink } from './sidebar-link'
 import { SidebarShell } from './sidebar-shell'
+import { CollapseToggle } from './collapse-toggle'
 import { logoutAction } from '@/actions/auth'
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed'
+
+const CATEGORY_ORDER = ['Gestion', 'Facturation', 'Système']
 
 const NAV = [
   {
@@ -19,6 +23,7 @@ const NAV = [
   {
     label: 'Établissements',
     href: '/super-admin/schools',
+    category: 'Gestion',
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -29,6 +34,7 @@ const NAV = [
   {
     label: 'Plans tarifaires',
     href: '/super-admin/plans',
+    category: 'Facturation',
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -39,6 +45,7 @@ const NAV = [
   {
     label: 'Abonnements',
     href: '/super-admin/subscriptions',
+    category: 'Facturation',
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -49,6 +56,7 @@ const NAV = [
   {
     label: 'Monitoring',
     href: '/super-admin/monitoring',
+    category: 'Système',
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -59,44 +67,72 @@ const NAV = [
 ]
 
 export function SuperAdminSidebar() {
+  const { collapsed, toggle } = useSidebarCollapsed()
+
+  const generalNav = NAV.filter((item: any) => !item.category)
+  const groupedNav = CATEGORY_ORDER
+    .map(category => ({ category, items: NAV.filter((item: any) => item.category === category) }))
+    .filter(group => group.items.length > 0)
+
   return (
-    <SidebarShell className="w-64 flex-shrink-0 border-r border-gray-200 bg-white">
+    <SidebarShell className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 border-r border-gray-200 bg-white transition-all duration-200`}>
       {/* Logo */}
-      <div className="h-16 flex items-center px-5 border-b border-gray-200">
+      <div className={`h-16 flex items-center border-b border-gray-200 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </div>
-          <div>
-            <p className="text-sm font-bold text-gray-900 leading-tight">ClasseLink</p>
-            <p className="text-[10px] text-blue-600 font-medium uppercase tracking-wide">Super Admin</p>
-          </div>
+          {!collapsed && (
+            <div>
+              <p className="text-sm font-bold text-gray-900 leading-tight">ClasseLink</p>
+              <p className="text-[10px] text-blue-600 font-medium uppercase tracking-wide">Super Admin</p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-        {NAV.map(item => (
-          <SidebarLink key={item.href} {...item} />
+      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+        <div className="space-y-0.5">
+          {generalNav.map(item => (
+            <SidebarLink key={item.href} {...item} collapsed={collapsed} />
+          ))}
+        </div>
+        {groupedNav.map(group => (
+          <div key={group.category} className={collapsed ? 'pt-2 border-t border-gray-100 mt-2' : 'pt-3'}>
+            {!collapsed && (
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {group.category}
+              </p>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map(item => (
+                <SidebarLink key={item.href} {...item} collapsed={collapsed} />
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
-      {/* Déconnexion */}
-      <div className="p-3 border-t border-gray-200">
+      {/* Réduire + Déconnexion */}
+      <div className="p-3 border-t border-gray-200 space-y-0.5">
+        <CollapseToggle collapsed={collapsed} onToggle={toggle} />
         <form action={logoutAction}>
           <button
             type="submit"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-                       text-red-600 hover:bg-red-50 transition-colors"
+            title={collapsed ? 'Déconnexion' : undefined}
+            className={`w-full flex items-center gap-3 rounded-lg text-sm font-medium
+                       text-red-600 hover:bg-red-50 transition-colors
+                       ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'}`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            Déconnexion
+            {!collapsed && 'Déconnexion'}
           </button>
         </form>
       </div>
