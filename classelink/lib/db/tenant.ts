@@ -6,8 +6,17 @@ import { TenantError } from '@/lib/errors'
 
 const tenantClients = new Map<string, PrismaClient>()
 
+const SCHEMA_RE = /^school_[a-z0-9]+$|^__super_admin__$/
+
+function assertValidSchemaName(schemaName: string): void {
+  if (!SCHEMA_RE.test(schemaName)) {
+    throw new TenantError(`Nom de schéma invalide : "${schemaName}"`)
+  }
+}
+
 export function getTenantPrisma(schemaName: string): PrismaClient {
   if (!schemaName) throw new TenantError()
+  assertValidSchemaName(schemaName)
 
   if (tenantClients.has(schemaName)) {
     return tenantClients.get(schemaName)!
@@ -55,12 +64,14 @@ export async function getSchemaFromHostname(hostname: string): Promise<string | 
 }
 
 export async function createTenantSchema(schemaName: string): Promise<void> {
+  assertValidSchemaName(schemaName)
   await (publicPrisma as any).$executeRawUnsafe(
     `CREATE SCHEMA IF NOT EXISTS "${schemaName}"`
   )
 }
 
 export async function dropTenantSchema(schemaName: string): Promise<void> {
+  assertValidSchemaName(schemaName)
   const client = tenantClients.get(schemaName)
   if (client) {
     await client.$disconnect()

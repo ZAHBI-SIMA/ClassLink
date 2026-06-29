@@ -3,6 +3,7 @@ import { compare } from 'bcryptjs'
 import { publicPrisma as db } from '@/lib/db/public'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { signMobileToken, signMobileRefreshToken } from '@/lib/auth/mobile-jwt'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,18 @@ export async function POST(req: NextRequest) {
 
     if (!schoolSlug || !email || !password) {
       return NextResponse.json({ error: 'schoolSlug, email et password sont requis.' }, { status: 400 })
+    }
+
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim()
+      ?? req.headers.get('x-real-ip')
+      ?? 'unknown'
+    const normalizedEmail = String(email).toLowerCase().trim()
+    const allowed = await rateLimit(`mobile-login:${ip}:${normalizedEmail}`, 10, 15 * 60 * 1000)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.' },
+        { status: 429 }
+      )
     }
 
     // 1. Retrouver l'école par son slug

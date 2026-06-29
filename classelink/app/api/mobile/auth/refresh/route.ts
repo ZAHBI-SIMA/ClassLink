@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyMobileToken, signMobileToken, extractBearerToken } from '@/lib/auth/mobile-jwt'
+import { verifyMobileRefreshToken, signMobileToken, extractBearerToken } from '@/lib/auth/mobile-jwt'
 import { getTenantPrisma } from '@/lib/db/tenant'
 
 export async function POST(req: NextRequest) {
@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Refresh token manquant.' }, { status: 401 })
     }
 
-    const payload = await verifyMobileToken(token)
+    const payload = await verifyMobileRefreshToken(token)
     if (!payload) {
       return NextResponse.json({ error: 'Refresh token invalide ou expiré.' }, { status: 401 })
     }

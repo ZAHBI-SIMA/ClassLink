@@ -122,6 +122,12 @@ export async function subscribeStudent(
   const { db } = await getAdminDb()
 
   try {
+    // Vérifie que l'élève existe (évite une violation de clé étrangère)
+    const studentRows: any[] = await db.$queryRaw`
+      SELECT id FROM students WHERE id = ${studentId} LIMIT 1
+    `
+    if (!studentRows[0]) return { success: false, error: 'Élève introuvable.' }
+
     const yearRows: any[] = await db.$queryRaw`
       SELECT id FROM academic_years WHERE is_current = TRUE LIMIT 1
     `
@@ -143,10 +149,16 @@ export async function subscribeStudent(
 }
 
 // ─── Mettre à jour le statut d'une souscription ───────────────────────────────
+const VALID_SUB_STATUSES = ['ACTIVE', 'SUSPENDED', 'CANCELLED'] as const
+
 export async function updateSubscriptionStatus(
   subId: string,
   status: string
 ): Promise<ActionResult> {
+  if (!VALID_SUB_STATUSES.includes(status as (typeof VALID_SUB_STATUSES)[number])) {
+    return { success: false, error: 'Statut invalide.' }
+  }
+
   const { db } = await getAdminDb()
 
   try {

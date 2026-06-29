@@ -44,9 +44,12 @@ export async function loginAction(
     return { success: false, error: parsed.error.issues[0].message }
   }
 
-  // Rate-limit: 10 attempts per email per 15 minutes
   const email = parsed.data.email.toLowerCase().trim()
-  const allowed = await rateLimit(`login:${email}`, 10, 15 * 60 * 1000)
+  const headersList = await headers()
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0].trim()
+    ?? headersList.get('x-real-ip')
+    ?? 'unknown'
+  const allowed = await rateLimit(`login:${ip}:${email}`, 10, 15 * 60 * 1000)
   if (!allowed) {
     return {
       success: false,

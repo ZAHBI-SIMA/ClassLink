@@ -49,6 +49,14 @@ async function fetchBulletinData(
       if (!check[0]) return { success: false, error: 'Accès non autorisé.' }
     }
 
+    // Si STUDENT : vérifier qu'il accède uniquement à son propre bulletin
+    if (session.user.role === 'STUDENT') {
+      const check: any[] = await db.$queryRaw`
+        SELECT id FROM students WHERE id = ${studentId} AND user_id = ${session.user.id} LIMIT 1
+      `
+      if (!check[0]) return { success: false, error: 'Accès non autorisé.' }
+    }
+
     // Infos élève
     const studentRows: any[] = await db.$queryRaw`
       SELECT
@@ -255,8 +263,8 @@ export async function getBulletinList(
       LEFT JOIN level_subjects ls ON ls.subject_id = g.subject_id AND ls.level_id = c.level_id
       LEFT JOIN class_councils cc ON cc.class_id = e.class_id AND cc.term_id = g.term_id
       LEFT JOIN council_students cs ON cs.council_id = cc.id AND cs.student_id = s.id
-      WHERE (${classId ?? null}::uuid IS NULL OR e.class_id = ${classId ?? null}::uuid)
-        AND (${termId ?? null}::uuid IS NULL OR g.term_id  = ${termId ?? null}::uuid)
+      WHERE (${classId ?? null}::text IS NULL OR e.class_id = ${classId ?? null}::text)
+        AND (${termId ?? null}::text IS NULL OR g.term_id  = ${termId ?? null}::text)
       GROUP BY s.id, u.first_name, u.last_name, e.class_id, c.name, g.subject_id
     ),
     student_avgs AS (
