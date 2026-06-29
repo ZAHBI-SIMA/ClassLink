@@ -150,7 +150,7 @@ export async function getResourceBookings(
   const { db } = await getAnyRoleDb()
 
   const resourceFilter = resourceId
-    ? Prisma.sql`AND rb.resource_id = ${resourceId}::uuid`
+    ? Prisma.sql`AND rb.resource_id = ${resourceId}::text`
     : Prisma.empty
   const dateFilter = date
     ? Prisma.sql`AND rb.booking_date = ${date}::date`

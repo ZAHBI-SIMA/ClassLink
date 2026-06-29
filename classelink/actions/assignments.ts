@@ -39,7 +39,7 @@ export async function getTeacherAssignmentList(): Promise<any[]> {
       a.title,
       a.description,
       a.due_date,
-      a.max_score,
+      a.max_score::float8 AS max_score,
       a.created_at,
       c.id   AS class_id,
       c.name AS class_name,
@@ -136,7 +136,7 @@ export async function getAssignmentSubmissions(assignmentId: string): Promise<{
   const { db, session } = await getTeacherDb()
 
   const assignments: any[] = await db.$queryRaw`
-    SELECT a.id, a.title, a.max_score, a.due_date, a.class_id,
+    SELECT a.id, a.title, a.max_score::float8 AS max_score, a.due_date, a.class_id,
            c.name AS class_name, s.name AS subject_name
     FROM assignments a
     JOIN classes  c ON c.id = a.class_id
@@ -158,7 +158,7 @@ export async function getAssignmentSubmissions(assignmentId: string): Promise<{
       sub.id          AS submission_id,
       sub.files,
       sub.submitted_at,
-      sub.score,
+      sub.score::float8 AS score,
       sub.feedback,
       sub.graded_at,
       sub.status
@@ -258,7 +258,7 @@ export async function getStudentAssignments(): Promise<any[]> {
       a.title,
       a.description,
       a.due_date,
-      a.max_score,
+      a.max_score::float8 AS max_score,
       s.name AS subject_name,
       s.code AS subject_code,
       u.first_name AS teacher_first,
@@ -266,7 +266,7 @@ export async function getStudentAssignments(): Promise<any[]> {
       sub.id          AS submission_id,
       sub.files,
       sub.submitted_at,
-      sub.score,
+      sub.score::float8 AS score,
       sub.feedback,
       sub.graded_at,
       sub.status      AS submission_status

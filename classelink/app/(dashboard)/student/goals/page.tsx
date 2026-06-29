@@ -158,20 +158,22 @@ export default async function GoalsPage() {
                 </div>
 
                 {/* Update progress */}
-                <form action={updateGoalAction} className="flex items-center gap-2">
-                  <input type="hidden" name="id" value={g.id} />
-                  <input
-                    type="number" name="currentValue" step="0.1" min={0}
-                    defaultValue={current}
-                    placeholder="Valeur actuelle"
-                    className="flex-1 px-3 py-1.5 text-xs border border-gray-300 rounded-lg
-                               focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                  <button type="submit"
-                    className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700
-                               text-xs font-medium rounded-lg transition">
-                    Mettre à jour
-                  </button>
+                <div className="flex items-center gap-2">
+                  <form action={updateGoalAction} className="flex flex-1 items-center gap-2">
+                    <input type="hidden" name="id" value={g.id} />
+                    <input
+                      type="number" name="currentValue" step="0.1" min={0}
+                      defaultValue={current}
+                      placeholder="Valeur actuelle"
+                      className="flex-1 px-3 py-1.5 text-xs border border-gray-300 rounded-lg
+                                 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <button type="submit"
+                      className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700
+                                 text-xs font-medium rounded-lg transition">
+                      Mettre à jour
+                    </button>
+                  </form>
                   <form action={deleteGoal.bind(null, g.id) as any}>
                     <button type="submit"
                       className="p-1.5 text-gray-300 hover:text-red-500 transition">
@@ -181,7 +183,7 @@ export default async function GoalsPage() {
                       </svg>
                     </button>
                   </form>
-                </form>
+                </div>
               </div>
             )
           })}

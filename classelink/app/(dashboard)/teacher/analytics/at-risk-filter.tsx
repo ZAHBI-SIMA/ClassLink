@@ -11,7 +11,7 @@ export function AtRiskFilter({ classId, classes }: Props) {
       <select
         name="classId"
         defaultValue={classId}
-        onChange={(e) => (e.target.form as HTMLFormElement).submit()}
+        onChange={(e) => (e.target.form as HTMLFormElement).requestSubmit()}
         className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         <option value="">-- Choisir une classe --</option>
