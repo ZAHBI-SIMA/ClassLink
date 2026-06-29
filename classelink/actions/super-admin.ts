@@ -617,6 +617,7 @@ export async function getMonitoringData() {
   const monthlyRevenue: { month: string; amount: number }[] = []
   for (let i = 5; i >= 0; i--) {
     const d = new Date()
+    d.setDate(1) // éviter le débordement de setMonth (ex. le 29 vers un mois sans 29 jours)
     d.setMonth(d.getMonth() - i)
     const key = d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
     monthlyRevenue.push({ month: key, amount: monthMap.get(key) ?? 0 })
