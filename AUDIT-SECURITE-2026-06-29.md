@@ -348,7 +348,11 @@ Le rate limiting web est appliqué par email (`login:${email}`), pas par adresse
 - **F-11, F-12** : Faible priorité, corrections futures.
 
 ### Vérification TypeScript et ESLint
-*(voir section suivante — résultats après corrections)*
+- `tsc --noEmit` : **0 erreur**
+- `eslint lib/auth/mobile-jwt.ts proxy.ts app/api/mobile/fcm/register/route.ts actions/cafeteria.ts` : **0 erreur** (24 warnings préexistants, sans rapport avec les corrections)
 
 ### Pull Request
-*(lien ajouté après push)*
+Branche poussée : `fix/securite-2026-06-29` → remote `sima` (SIM-ASSURANCES/ClassLink)
+
+URL de création de PR :
+https://github.com/SIM-ASSURANCES/ClassLink/pull/new/fix/securite-2026-06-29
