@@ -332,20 +332,28 @@ Le rate limiting web est appliqué par email (`login:${email}`), pas par adresse
 
 ## Corrections appliquées
 
-### Fichiers modifiés
-1. **`classelink/lib/auth/mobile-jwt.ts`** — Secret JWT : suppression du fallback `'classlink-mobile-secret'`, levée d'erreur si aucun secret n'est défini
-2. **`classelink/proxy.ts`** — 2FA middleware : ajout de la vérification HMAC via Web Crypto (compatible Edge Runtime)
-3. **`classelink/app/api/mobile/fcm/register/route.ts`** — Injection SQL : remplacement de `$executeRawUnsafe` + interpolation par `$executeRaw` paramétré
-4. **`classelink/actions/cafeteria.ts`** — Validation de l'état de souscription cantine : liste blanche `ACTIVE`, `SUSPENDED`, `CANCELLED`
+### Fichiers modifiés (14 fichiers, 2 commits)
+
+**Commit 1 — Corrections critiques immédiates :**
+1. `classelink/lib/auth/mobile-jwt.ts` — Secret JWT : suppression du fallback `'classlink-mobile-secret'`, levée d'erreur si aucun secret n'est défini
+2. `classelink/proxy.ts` — 2FA middleware : vérification HMAC via Web Crypto (Edge Runtime)
+3. `classelink/app/api/mobile/fcm/register/route.ts` — Injection SQL : `$executeRaw` paramétré
+4. `classelink/actions/cafeteria.ts` — Validation liste blanche `ACTIVE|SUSPENDED|CANCELLED`
+
+**Commit 2 — Corrections complètes :**
+5. `classelink/lib/auth/mobile-jwt.ts` — F-04 : claim `type: access|refresh`, fonctions `verifyMobileAccessToken` / `verifyMobileRefreshToken`
+6. `classelink/lib/auth/mobile-guard.ts` — F-04 : utilise `verifyMobileAccessToken`
+7. `classelink/app/api/mobile/auth/refresh/route.ts` — F-04 : utilise `verifyMobileRefreshToken`
+8. `classelink/app/api/mobile/auth/login/route.ts` — F-05 : rate limiting 10/15min par IP+email
+9. `classelink/lib/auth/config.ts` — F-06 : `signIn` callback bloque les Google non-tenant ; `jwt` enrichit role/schemaName
+10. `classelink/actions/bulletin.ts` — F-07 : vérification propriétaire STUDENT
+11. `classelink/lib/auth/two-fa-cookie.ts` — F-10 : supprime fallback `'fallback-secret'`
+12. `classelink/actions/auth.ts` — F-11 : rate limit par IP+email
+13. `classelink/lib/db/tenant.ts` — F-12 : `assertValidSchemaName()` avant tout `$executeRawUnsafe`
+14. `classelink/actions/super-admin.ts` — F-12 : validation regex dans `repairTenantSchema`
 
 ### Corrections différées (justification)
-- **F-04 (tokens interchangeables)** : Nécessite une refonte de l'architecture JWT mobile (nouveau claim `type`, table de refresh tokens, rotation). Impact important sur l'application mobile — à planifier avec l'équipe.
-- **F-05 (rate limiting mobile)** : Requiert de tester l'impact sur l'application mobile existante et de définir les seuils appropriés.
-- **F-06 (Google OAuth + tenant)** : Nécessite de comprendre les cas d'usage prévus pour Google OAuth (utilisé en production ?) et de concevoir la logique d'association tenant.
-- **F-07 (IDOR bulletins STUDENT)** : Nécessite une décision métier sur le modèle d'accès attendu pour les enseignants (ils n'ont pas de vérification non plus).
-- **F-09 (clés production)** : Action manuelle (révocation + régénération des clés GeniusPay).
-- **F-10 (AUTH_SECRET)** : Action opérationnelle (génération d'un vrai secret en production).
-- **F-11, F-12** : Faible priorité, corrections futures.
+- **F-09 (clés production)** : Action manuelle — révoquer et régénérer les clés GeniusPay dans le tableau de bord GeniusPay, puis mettre à jour les variables d'environnement de production.
 
 ### Vérification TypeScript et ESLint
 - `tsc --noEmit` : **0 erreur**
