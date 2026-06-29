@@ -18,16 +18,15 @@ export const POST = withMobileAuth(['STUDENT', 'PARENT'], async (req, { user, te
       )
     `)
 
-    const safeUserId   = user.userId.replace(/'/g, "''")
-    const safeToken    = (token as string).replace(/'/g, "''")
-    const safePlatform = ((platform as string) ?? 'android').replace(/'/g, "''")
+    const safeToken    = String(token)
+    const safePlatform = String(platform ?? 'android')
 
-    await tenantDb.$executeRawUnsafe(`
+    await tenantDb.$executeRaw`
       INSERT INTO device_tokens (user_id, token, platform, updated_at)
-      VALUES ('${safeUserId}', '${safeToken}', '${safePlatform}', NOW())
+      VALUES (${user.userId}, ${safeToken}, ${safePlatform}, NOW())
       ON CONFLICT (user_id, token) DO UPDATE
         SET platform = EXCLUDED.platform, updated_at = NOW()
-    `)
+    `
 
     return NextResponse.json({ success: true })
   } catch {

@@ -1,6 +1,33 @@
 import { auth } from '@/lib/auth/edge-config'
 import { NextRequest, NextResponse } from 'next/server'
 
+async function verify2FACookieEdge(value: string, userId: string): Promise<boolean> {
+  try {
+    const secret = process.env.AUTH_SECRET
+    if (!secret) return false
+    const lastDot = value.lastIndexOf('.')
+    if (lastDot === -1) return false
+    const payload = value.slice(0, lastDot)
+    const sig     = value.slice(lastDot + 1)
+    const [uid, expiresAtStr] = payload.split(':')
+    if (uid !== userId) return false
+    const expiresAt = parseInt(expiresAtStr, 10)
+    if (isNaN(expiresAt) || Date.now() > expiresAt) return false
+    const enc = new TextEncoder()
+    const key = await crypto.subtle.importKey(
+      'raw', enc.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    )
+    const sigBuf   = await crypto.subtle.sign('HMAC', key, enc.encode(payload))
+    const expected = Array.from(new Uint8Array(sigBuf))
+      .map(b => b.toString(16).padStart(2, '0')).join('')
+    if (sig.length !== expected.length) return false
+    let diff = 0
+    for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i)
+    return diff === 0
+  } catch { return false }
+}
+
 // Routes publiques (pas besoin d'auth)
 const PUBLIC_PATHS = [
   '/login',
@@ -41,7 +68,7 @@ function isSuperAdminPath(pathname: string): boolean {
   return SUPER_ADMIN_PATHS.some(p => pathname.startsWith(p))
 }
 
-export default auth(function middleware(request: NextRequest) {
+export default auth(async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const hostname = request.headers.get('host') ?? ''
   const session = (request as any).auth
@@ -78,20 +105,7 @@ export default auth(function middleware(request: NextRequest) {
   if (session.user.twoFactorEnabled && pathname !== '/two-factor') {
     const twoFaVerified = request.cookies.get('2fa_verified')?.value
     const is2FAValid = twoFaVerified
-      ? (() => {
-          // Nouveau format HMAC : `${userId}:${expiresAt}.${hmacSig}`
-          // Vérification structurelle + userId + expiration (HMAC complet côté Server Action)
-          try {
-            const lastDot = twoFaVerified.lastIndexOf('.')
-            if (lastDot === -1) return false
-            const payload = twoFaVerified.slice(0, lastDot)
-            const [uid, expiresAtStr] = payload.split(':')
-            if (uid !== session.user.id) return false
-            const expiresAt = parseInt(expiresAtStr, 10)
-            if (isNaN(expiresAt) || Date.now() > expiresAt) return false
-            return true
-          } catch { return false }
-        })()
+      ? await verify2FACookieEdge(twoFaVerified, session.user.id ?? '')
       : false
     if (!is2FAValid) {
       return NextResponse.redirect(new URL('/two-factor', request.url))
