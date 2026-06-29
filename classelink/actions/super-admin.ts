@@ -669,6 +669,11 @@ export async function repairTenantSchema(schoolId: string): Promise<ActionResult
     const sql = readFileSync(sqlPath, 'utf-8')
     const { schemaName } = school
 
+    // Valider le format du schéma avant tout usage dans du SQL brut
+    if (!/^school_[a-z0-9]+$/.test(schemaName)) {
+      return { success: false, error: 'Nom de schéma invalide — opération annulée.' }
+    }
+
     // S'assurer que le schéma PostgreSQL existe
     await (publicPrisma as any).$executeRawUnsafe(
       `CREATE SCHEMA IF NOT EXISTS "${schemaName}"`

@@ -148,8 +148,61 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account }) {
+      if (account?.provider === 'google') {
+        if (!user.email) return false
+        const db = publicPrisma as any
+        try {
+          const schools = await db.school.findMany({
+            where: { status: { in: ['TRIAL', 'ACTIVE'] } },
+            select: { schemaName: true },
+          })
+          for (const school of schools) {
+            try {
+              const tenantDb = getTenantPrisma(school.schemaName) as any
+              const rows: any[] = await tenantDb.$queryRaw`
+                SELECT id FROM users WHERE email = ${user.email} AND is_active = TRUE LIMIT 1
+              `
+              if (rows[0]) return true
+            } catch { continue }
+          }
+        } catch { /* ignore */ }
+        return false
+      }
+      return true
+    },
+
+    async jwt({ token, user, account }) {
       if (user) {
+        if ((account as any)?.provider === 'google') {
+          // Enrichir le JWT avec les données du tenant pour les connexions Google
+          const db = publicPrisma as any
+          try {
+            const schools = await db.school.findMany({
+              where: { status: { in: ['TRIAL', 'ACTIVE'] } },
+              select: { schemaName: true },
+            })
+            for (const school of schools) {
+              try {
+                const tenantDb = getTenantPrisma(school.schemaName) as any
+                const rows: any[] = await tenantDb.$queryRaw`
+                  SELECT id, first_name, last_name, role, two_factor_enabled
+                  FROM users WHERE email = ${user.email} AND is_active = TRUE LIMIT 1
+                `
+                if (rows[0]) {
+                  token.id = rows[0].id
+                  token.role = rows[0].role as Role
+                  token.schemaName = school.schemaName
+                  token.firstName = rows[0].first_name
+                  token.lastName = rows[0].last_name
+                  token.twoFactorEnabled = rows[0].two_factor_enabled ?? false
+                  return token
+                }
+              } catch { continue }
+            }
+          } catch { /* ignore */ }
+          return null as unknown as typeof token
+        }
         token.id = user.id!
         token.role = user.role
         token.schemaName = user.schemaName

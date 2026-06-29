@@ -13,7 +13,8 @@ export const TWO_FA_MAX_AGE_MS = TWO_FA_MAX_AGE_S * 1000
  */
 export async function buildSigned2FACookie(userId: string): Promise<string> {
   const { createHmac } = await import('crypto')
-  const secret    = process.env.AUTH_SECRET ?? 'fallback-secret'
+  const secret = process.env.AUTH_SECRET
+  if (!secret) throw new Error('AUTH_SECRET doit être défini.')
   const expiresAt = Date.now() + TWO_FA_MAX_AGE_MS
   const payload   = `${userId}:${expiresAt}`
   const sig       = createHmac('sha256', secret).update(payload).digest('hex')
@@ -27,7 +28,8 @@ export async function buildSigned2FACookie(userId: string): Promise<string> {
 export async function verify2FACookie(value: string, userId: string): Promise<boolean> {
   try {
     const { createHmac } = await import('crypto')
-    const secret      = process.env.AUTH_SECRET ?? 'fallback-secret'
+    const secret = process.env.AUTH_SECRET
+    if (!secret) return false
     const lastDot     = value.lastIndexOf('.')
     if (lastDot === -1) return false
     const payload     = value.slice(0, lastDot)

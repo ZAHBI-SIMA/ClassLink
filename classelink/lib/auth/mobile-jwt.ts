@@ -11,12 +11,13 @@ export interface MobileJWTPayload {
   role:       string
   schemaName: string
   schoolId:   string
+  type:       'access' | 'refresh'
   iat?:       number
   exp?:       number
 }
 
-export async function signMobileToken(payload: MobileJWTPayload): Promise<string> {
-  return new SignJWT({ ...payload })
+export async function signMobileToken(payload: Omit<MobileJWTPayload, 'type'>): Promise<string> {
+  return new SignJWT({ ...payload, type: 'access' })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
@@ -24,20 +25,32 @@ export async function signMobileToken(payload: MobileJWTPayload): Promise<string
 }
 
 export async function signMobileRefreshToken(payload: Pick<MobileJWTPayload, 'userId' | 'schemaName' | 'schoolId'>): Promise<string> {
-  return new SignJWT({ ...payload })
+  return new SignJWT({ ...payload, type: 'refresh' })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('30d')
     .sign(getSecret())
 }
 
-export async function verifyMobileToken(token: string): Promise<MobileJWTPayload | null> {
+async function verifyMobileToken(token: string): Promise<MobileJWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret())
     return payload as unknown as MobileJWTPayload
   } catch {
     return null
   }
+}
+
+export async function verifyMobileAccessToken(token: string): Promise<MobileJWTPayload | null> {
+  const payload = await verifyMobileToken(token)
+  if (!payload || payload.type !== 'access') return null
+  return payload
+}
+
+export async function verifyMobileRefreshToken(token: string): Promise<Pick<MobileJWTPayload, 'userId' | 'schemaName' | 'schoolId'> | null> {
+  const payload = await verifyMobileToken(token)
+  if (!payload || payload.type !== 'refresh') return null
+  return { userId: payload.userId, schemaName: payload.schemaName, schoolId: payload.schoolId }
 }
 
 export function extractBearerToken(authHeader: string | null): string | null {

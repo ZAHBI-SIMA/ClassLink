@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyMobileToken, extractBearerToken, MobileJWTPayload } from './mobile-jwt'
+import { verifyMobileAccessToken, extractBearerToken, MobileJWTPayload } from './mobile-jwt'
 import { getTenantPrisma } from '@/lib/db/tenant'
 
 export type MobileRouteContext = {
@@ -21,7 +21,7 @@ export function withMobileAuth(
       return NextResponse.json({ error: 'Token d\'accès manquant.' }, { status: 401 })
     }
 
-    const payload = await verifyMobileToken(token)
+    const payload = await verifyMobileAccessToken(token)
     if (!payload) {
       return NextResponse.json({ error: 'Token invalide ou expiré.' }, { status: 401 })
     }
