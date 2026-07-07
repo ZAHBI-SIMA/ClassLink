@@ -237,7 +237,7 @@ export default async function StudentBulletinDetailPage({ params }: Props) {
 
         {/* Pied de page */}
         <div className="border-t border-gray-200 pt-3 text-center text-xs text-gray-400">
-          Bulletin généré par ClasseLink · {new Date().toLocaleDateString('fr-FR')}
+          Bulletin généré par MyClassLink · {new Date().toLocaleDateString('fr-FR')}
         </div>
       </div>
 

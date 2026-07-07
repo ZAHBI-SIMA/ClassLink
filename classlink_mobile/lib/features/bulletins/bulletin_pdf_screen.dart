@@ -7,6 +7,10 @@ import '../../core/api/api_client.dart';
 import '../../core/api/api_constants.dart';
 import '../../core/theme/app_theme.dart';
 
+// Couleurs de marque MyClassLink pour le PDF (#1800AD)
+const _brandBlue      = PdfColor.fromInt(0xFF1800AD);
+const _brandBlueLight = PdfColor.fromInt(0xFFEFEEFF);
+
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 final bulletinDetailProvider = FutureProvider.family<Map<String, dynamic>, _BulletinArgs>(
@@ -49,7 +53,7 @@ class BulletinPdfScreen extends ConsumerWidget {
     PdfColor _pdfColor(double? a) {
       if (a == null) return PdfColors.grey;
       if (a >= 14)  return PdfColors.green700;
-      if (a >= 10)  return PdfColors.blue700;
+      if (a >= 10)  return _brandBlue;
       return PdfColors.red700;
     }
 
@@ -59,7 +63,7 @@ class BulletinPdfScreen extends ConsumerWidget {
       header: (ctx) => pw.Column(children: [
         pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
           pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Text('ClasseLink', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColors.blue700)),
+            pw.Text('MyClassLink', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: _brandBlue)),
             pw.Text('Bulletin scolaire', style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
           ]),
           pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
@@ -67,7 +71,7 @@ class BulletinPdfScreen extends ConsumerWidget {
             pw.Text(termName, style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
           ]),
         ]),
-        pw.Divider(color: PdfColors.blue700, thickness: 1.5),
+        pw.Divider(color: _brandBlue, thickness: 1.5),
         pw.SizedBox(height: 4),
       ]),
       build: (ctx) => [
@@ -82,7 +86,7 @@ class BulletinPdfScreen extends ConsumerWidget {
           children: [
             // En-tête
             pw.TableRow(
-              decoration: const pw.BoxDecoration(color: PdfColors.blue50),
+              decoration: const pw.BoxDecoration(color: _brandBlueLight),
               children: [
                 pw.Padding(padding: const pw.EdgeInsets.all(6),
                   child: pw.Text('Matière', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),

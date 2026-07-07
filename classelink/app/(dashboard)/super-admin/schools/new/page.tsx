@@ -19,7 +19,7 @@ export default async function NewSchoolPage() {
         </Link>
         <div>
           <h2 className="text-xl font-bold text-gray-900">Nouvel établissement</h2>
-          <p className="text-sm text-gray-500">Créer une nouvelle école sur ClasseLink</p>
+          <p className="text-sm text-gray-500">Créer une nouvelle école sur MyClassLink</p>
         </div>
       </div>
       <CreateSchoolForm plans={plans} />

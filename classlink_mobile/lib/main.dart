@@ -7,18 +7,18 @@ import 'router.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.initialize();
-  runApp(const ProviderScope(child: ClasseLinkApp()));
+  runApp(const ProviderScope(child: MyClassLinkApp()));
 }
 
-class ClasseLinkApp extends ConsumerWidget {
-  const ClasseLinkApp({super.key});
+class MyClassLinkApp extends ConsumerWidget {
+  const MyClassLinkApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'ClassLink',
+      title: 'MyClassLink',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: router,

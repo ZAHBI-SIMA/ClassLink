@@ -15,9 +15,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <Link href="/" className="inline-block">
             <Image
               src="/logo.png"
-              alt="ClassLink"
-              width={677}
-              height={369}
+              alt="MyClassLink"
+              width={2000}
+              height={2000}
               priority
               className="h-16 w-auto mx-auto"
             />
@@ -29,7 +29,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 mt-6">
-          © {new Date().getFullYear()} ClasseLink · Côte d&apos;Ivoire
+          © {new Date().getFullYear()} MyClassLink · Côte d&apos;Ivoire
         </p>
       </div>
     </div>

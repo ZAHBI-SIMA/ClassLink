@@ -34,8 +34,8 @@ export function SettingsForm({ settings, subscription, schoolSlug }: Props) {
   // ── Identité visuelle (aperçu en direct) ──────────────────────────────────
   const [logoUrl, setLogoUrl]       = useState<string>(settings.logo_url ?? '')
   const [slogan, setSlogan]         = useState<string>(settings.slogan ?? '')
-  const [primary, setPrimary]       = useState<string>(settings.primary_color ?? '#2563eb')
-  const [secondary, setSecondary]   = useState<string>(settings.secondary_color ?? '#7c3aed')
+  const [primary, setPrimary]       = useState<string>(settings.primary_color ?? '#1800ad')
+  const [secondary, setSecondary]   = useState<string>(settings.secondary_color ?? '#ffe965')
   const [font, setFont]             = useState<string>(settings.font_family ?? '')
   const [logoError, setLogoError]   = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -361,7 +361,7 @@ export function SettingsForm({ settings, subscription, schoolSlug }: Props) {
             <h3 className="text-sm font-semibold text-gray-900 mb-1">Moyen de paiement</h3>
             <p className="text-xs text-gray-400">
               Encaissez les frais de scolarité directement sur le compte de votre établissement.
-              Sans configuration, les paiements transitent par le compte ClassLink.
+              Sans configuration, les paiements transitent par le compte MyClassLink.
             </p>
           </div>
 
@@ -375,7 +375,7 @@ export function SettingsForm({ settings, subscription, schoolSlug }: Props) {
               className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-300 bg-white
                          focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Aucun (utiliser ClassLink)</option>
+              <option value="">Aucun (utiliser MyClassLink)</option>
               <option value="GENIUSPAY">GeniusPay</option>
               <option value="CINETPAY">CinetPay</option>
             </select>
@@ -514,7 +514,7 @@ export function SettingsForm({ settings, subscription, schoolSlug }: Props) {
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Connexion à l&apos;app mobile ClassLink</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Connexion à l&apos;app mobile MyClassLink</h3>
             <p className="text-xs text-gray-500 mt-0.5">Informations à communiquer aux élèves et parents</p>
           </div>
         </div>
@@ -564,8 +564,8 @@ export function SettingsForm({ settings, subscription, schoolSlug }: Props) {
             {[
               {
                 num: '1',
-                title: "Télécharger l'app ClassLink",
-                desc: "Chaque élève ou parent télécharge l'application ClassLink sur son smartphone Android.",
+                title: "Télécharger l'app MyClassLink",
+                desc: "Chaque élève ou parent télécharge l'application MyClassLink sur son smartphone Android.",
               },
               {
                 num: '2',

@@ -140,15 +140,15 @@ export async function forgotPasswordAction(
           await resend.emails.send({
             from: `${process.env.EMAIL_FROM_NAME} <${process.env.EMAIL_FROM}>`,
             to: email,
-            subject: 'Réinitialisation de votre mot de passe ClasseLink',
+            subject: 'Réinitialisation de votre mot de passe MyClassLink',
             html: `
               <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-                <h2 style="color: #2563eb;">Réinitialisation du mot de passe</h2>
+                <h2 style="color: #1800ad;">Réinitialisation du mot de passe</h2>
                 <p>Bonjour ${user.firstName},</p>
-                <p>Vous avez demandé la réinitialisation de votre mot de passe sur ClasseLink.</p>
+                <p>Vous avez demandé la réinitialisation de votre mot de passe sur MyClassLink.</p>
                 <p>Cliquez sur le bouton ci-dessous dans les <strong>15 minutes</strong> :</p>
                 <a href="${resetUrl}"
-                   style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;">
+                   style="display:inline-block;background:#1800ad;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;">
                   Réinitialiser mon mot de passe
                 </a>
                 <p style="color:#6b7280;font-size:12px;">

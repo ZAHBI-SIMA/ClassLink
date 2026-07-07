@@ -10,7 +10,8 @@ export function MobileTopbar({ title }: { title?: string }) {
   return (
     <header className="flex h-14 flex-shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3 lg:hidden">
       <SidebarToggle />
-      <span className="truncate text-sm font-semibold text-gray-900">{title || 'ClasseLink'}</span>
+      <img src="/logo.png" alt="" className="h-7 w-7 rounded-lg object-cover" />
+      <span className="truncate text-sm font-semibold text-gray-900">{title || 'MyClassLink'}</span>
     </header>
   )
 }

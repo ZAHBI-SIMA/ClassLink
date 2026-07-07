@@ -2,7 +2,7 @@ import { getResources, getResourceBookings } from '@/actions/resources'
 import { PageHeader } from '@/components/ui/page-header'
 import { ResourcesClient } from './resources-client'
 
-export const metadata = { title: 'Réservation de ressources — ClassLink' }
+export const metadata = { title: 'Réservation de ressources — MyClassLink' }
 
 export default async function TeacherResourcesPage() {
   const todayStr = new Date().toISOString().split('T')[0]

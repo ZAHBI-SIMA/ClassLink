@@ -5,7 +5,7 @@ interface Props {
   params: Promise<{ token: string }>
 }
 
-export const metadata = { title: 'Paiement Mobile Money — ClassLink' }
+export const metadata = { title: 'Paiement Mobile Money — MyClassLink' }
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(n)
@@ -45,7 +45,7 @@ export default async function PublicPaymentPage({ params }: Props) {
                 d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
           </div>
-          <p className="text-blue-100 text-xs font-semibold uppercase tracking-widest">ClassLink</p>
+          <p className="text-blue-100 text-xs font-semibold uppercase tracking-widest">MyClassLink</p>
           <h1 className="text-xl font-bold mt-1">{schoolName}</h1>
         </div>
 
@@ -84,7 +84,7 @@ export default async function PublicPaymentPage({ params }: Props) {
         </div>
 
         <p className="text-center text-xs text-gray-400 pb-5">
-          Paiement sécurisé · Propulsé par <span className="font-medium">ClassLink &amp; GeniusPay</span>
+          Paiement sécurisé · Propulsé par <span className="font-medium">MyClassLink &amp; GeniusPay</span>
         </p>
       </div>
     </div>

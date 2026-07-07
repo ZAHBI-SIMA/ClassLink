@@ -1,6 +1,6 @@
-# classlink_mobile
+# MyClassLink Mobile
 
-A new Flutter project.
+Application mobile MyClassLink — Élèves & Parents.
 
 ## Getting Started
 

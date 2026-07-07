@@ -11,7 +11,7 @@
 const GENIUSPAY_API =
   process.env.GENIUSPAY_API_URL ?? 'https://pay.genius.ci/api/v1/merchant'
 
-/** Identifiants GeniusPay (par défaut : compte global ClassLink via env). */
+/** Identifiants GeniusPay (par défaut : compte global MyClassLink via env). */
 export interface GeniusPayCreds {
   apiKey:        string
   apiSecret:     string

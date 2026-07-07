@@ -5,7 +5,7 @@ import { listStaff } from '@/actions/staff'
 import { MODULES, JOB_PRESETS } from '@/lib/permissions/modules'
 import { StaffClient } from './staff-client'
 
-export const metadata = { title: 'Personnel & accès — ClassLink' }
+export const metadata = { title: 'Personnel & accès — MyClassLink' }
 export const runtime = 'nodejs'
 
 export default async function StaffPage() {

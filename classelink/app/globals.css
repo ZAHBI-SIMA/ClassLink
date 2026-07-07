@@ -3,12 +3,30 @@
 :root {
   --background: #ffffff;
   --foreground: #0f172a;
-  --primary: #2563eb;
+  --primary: #1800ad;
   --primary-foreground: #ffffff;
+  --secondary: #ffe965;
+  --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
   --border: #e2e8f0;
   --radius: 0.5rem;
+}
+
+/* Palette de marque MyClassLink (#1800ad) : remplace la palette bleue par
+   défaut de Tailwind pour rebrander toute l'application d'un seul coup. */
+@theme {
+  --color-blue-50:  #efeeff;
+  --color-blue-100: #e0ddff;
+  --color-blue-200: #c6bfff;
+  --color-blue-300: #a295ff;
+  --color-blue-400: #7a63fb;
+  --color-blue-500: #4526e0;
+  --color-blue-600: #1800ad;
+  --color-blue-700: #13008a;
+  --color-blue-800: #0f006b;
+  --color-blue-900: #0b004f;
+  --color-blue-950: #060030;
 }
 
 @theme inline {
@@ -16,6 +34,8 @@
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
@@ -54,6 +74,47 @@ html,
 body {
   max-width: 100%;
   overflow-x: hidden;
+}
+
+/* ── Animations landing ─────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+.animate-float-soft { animation: float-soft 5s ease-in-out infinite; }
+.animate-float-soft-delayed { animation: float-soft 5s ease-in-out 2.5s infinite; }
+
+@keyframes marquee-x {
+  to { transform: translateX(-50%); }
+}
+.animate-marquee { animation: marquee-x 30s linear infinite; }
+.marquee-paused:hover .animate-marquee { animation-play-state: paused; }
+
+@keyframes grow-bar {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+.animate-grow-bar {
+  transform-origin: bottom;
+  animation: grow-bar 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .animate-float-soft,
+  .animate-float-soft-delayed,
+  .animate-marquee,
+  .animate-grow-bar { animation: none; }
 }
 
 /* Tables responsives : défilement horizontal sur petits écrans plutôt que troncature */

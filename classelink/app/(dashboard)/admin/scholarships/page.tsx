@@ -9,7 +9,7 @@ import { requireRole } from '@/lib/auth/rbac'
 import { PageHeader } from '@/components/ui/page-header'
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Bourses — ClasseLink' }
+export const metadata: Metadata = { title: 'Bourses — MyClassLink' }
 
 const STATUS_CFG: Record<string, { label: string; cls: string }> = {
   ACTIVE:    { label: 'Active',    cls: 'bg-green-100 text-green-800 border-green-200' },

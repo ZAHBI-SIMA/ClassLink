@@ -147,7 +147,7 @@ export default async function AnalyticsPage() {
             {data.averagesByClass.map((cls: any) => {
               const avg = parseFloat(cls.average) || 0
               const pct = Math.round((avg / 20) * 100)
-              const color = avg >= 14 ? '#10b981' : avg >= 10 ? '#3b82f6' : avg >= 7 ? '#f59e0b' : '#ef4444'
+              const color = avg >= 14 ? '#10b981' : avg >= 10 ? '#4526e0' : avg >= 7 ? '#f59e0b' : '#ef4444'
               return (
                 <div key={cls.class_name} className="flex items-center gap-3">
                   <p className="text-sm font-medium text-gray-700 w-24 truncate flex-shrink-0">{cls.class_name}</p>

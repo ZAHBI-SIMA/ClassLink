@@ -445,20 +445,11 @@ export function AdminSidebar({
     <SidebarShell className={`${collapsed ? 'w-16' : 'w-64'} flex-shrink-0 border-r border-gray-200 bg-white transition-all duration-200`}>
       <div className={`h-16 flex items-center border-b border-gray-200 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
         <div className="flex items-center gap-2.5 min-w-0">
-          {logoUrl ? (
-            <img src={logoUrl} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-          ) : (
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-          )}
+          <img src={logoUrl || '/logo.png'} alt="Logo" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
           {!collapsed && (
             <div className="min-w-0">
               <p className="text-sm font-bold text-gray-900 leading-tight truncate">
-                {schoolName ?? 'ClasseLink'}
+                {schoolName ?? 'MyClassLink'}
               </p>
               <p className="text-[10px] text-primary font-medium uppercase tracking-wide truncate">
                 {slogan || ROLE_LABELS[userRole] || 'Administration'}

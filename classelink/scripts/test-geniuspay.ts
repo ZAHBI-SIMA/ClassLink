@@ -29,7 +29,7 @@ async function main() {
   console.log('1) initiatePayment (montant 500 XOF)...')
   const init = await initiatePayment({
     amount: 500,
-    description: 'Test ClasseLink — frais de scolarité',
+    description: 'Test MyClassLink — frais de scolarité',
     customerId: 'u_parent_1',
     customerName: 'Parent Test',
     customerEmail: 'parent@example.com',

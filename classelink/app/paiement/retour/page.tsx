@@ -6,7 +6,7 @@ interface Props {
   searchParams: Promise<{ token?: string }>
 }
 
-export const metadata = { title: 'Résultat du paiement — ClassLink' }
+export const metadata = { title: 'Résultat du paiement — MyClassLink' }
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(n)
@@ -106,7 +106,7 @@ export default async function PublicPaymentReturnPage({ searchParams }: Props) {
           )}
         </div>
 
-        <p className="text-xs text-gray-400">Propulsé par ClassLink &amp; GeniusPay</p>
+        <p className="text-xs text-gray-400">Propulsé par MyClassLink &amp; GeniusPay</p>
       </div>
     </div>
   )

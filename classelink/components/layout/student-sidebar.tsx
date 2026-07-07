@@ -125,14 +125,10 @@ export function StudentSidebar({ studentName, className, logoUrl, slogan }: { st
     <SidebarShell className={`${collapsed ? 'w-16' : 'w-56'} flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-200`}>
       <div className={`border-b border-gray-100 ${collapsed ? 'px-2 py-4 text-center' : 'px-5 py-4'}`}>
         {collapsed ? (
-          logoUrl ? (
-            <img src={logoUrl} alt="" className="w-7 h-7 rounded-lg object-cover mx-auto" />
-          ) : (
-            <p className="text-xs font-bold text-primary uppercase">Él.</p>
-          )
+          <img src={logoUrl || '/logo.png'} alt="Logo" className="w-7 h-7 rounded-lg object-cover mx-auto" />
         ) : (
           <>
-            {logoUrl && <img src={logoUrl} alt="" className="w-7 h-7 rounded-lg object-cover mb-2" />}
+            <img src={logoUrl || '/logo.png'} alt="Logo" className="w-7 h-7 rounded-lg object-cover mb-2" />
             <p className="text-xs font-semibold text-primary uppercase tracking-wide">{slogan || 'Élève'}</p>
             <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">{studentName}</p>
             {className && <p className="text-xs text-gray-400">{className}</p>}

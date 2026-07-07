@@ -19,7 +19,7 @@ const colors = {
   border:  '#e5e7eb',
   green:   '#15803d',
   red:     '#b91c1c',
-  blue:    '#1d4ed8',
+  blue:    '#13008a',
   purple:  '#7c3aed',
   stripe:  '#f3f4f6',
 }
@@ -195,8 +195,8 @@ export function BulletinPdf({
   return (
     <Document
       title={`Bulletin — ${student.last_name} ${student.first_name} — ${term?.name ?? ''}`}
-      author={school?.school_name ?? 'ClassLink'}
-      creator="ClassLink"
+      author={school?.school_name ?? 'MyClassLink'}
+      creator="MyClassLink"
     >
       <Page size="A4" style={s.page}>
 
@@ -248,7 +248,7 @@ export function BulletinPdf({
 
         {/* ── Résumé ─────────────────────────────────────────────────── */}
         <View style={s.summaryRow}>
-          <View style={{ ...s.summaryBox, borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }}>
+          <View style={{ ...s.summaryBox, borderColor: '#c6bfff', backgroundColor: '#efeeff' }}>
             <Text style={s.summaryLabel}>Moyenne générale</Text>
             <Text style={{ ...s.summaryValue, color: avgColor(genAvg) }}>
               {genAvg !== null ? genAvg.toFixed(2) : '—'}
@@ -384,7 +384,7 @@ export function BulletinPdf({
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <View style={s.footer}>
           <Text style={s.footerText}>
-            Bulletin généré par ClassLink · {today}
+            Bulletin généré par MyClassLink · {today}
           </Text>
         </View>
 

@@ -1,5 +1,5 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Schéma Tenant ClasseLink — Appliqué dans chaque schéma school_xxx
+-- Schéma Tenant MyClassLink — Appliqué dans chaque schéma school_xxx
 -- Ce script est exécuté lors de la création d'une nouvelle école.
 -- ─────────────────────────────────────────────────────────────────────────────
 

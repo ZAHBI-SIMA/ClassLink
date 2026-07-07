@@ -4,7 +4,7 @@ import { requireRole } from '@/lib/auth/rbac'
 import { PageHeader } from '@/components/ui/page-header'
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Récompenses — ClasseLink' }
+export const metadata: Metadata = { title: 'Récompenses — MyClassLink' }
 
 const TYPE_CFG: Record<string, { label: string; cls: string }> = {
   FELICITATIONS:   { label: 'Félicitations',     cls: 'bg-yellow-100 text-yellow-800 border-yellow-200' },

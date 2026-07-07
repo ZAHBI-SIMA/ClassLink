@@ -111,7 +111,7 @@ export async function verifyTotp(secret: string, token: string): Promise<boolean
 }
 
 /** Build an otpauth:// URI for QR code generation */
-export function buildOtpAuthUri(secret: string, accountName: string, issuer = 'ClasseLink'): string {
+export function buildOtpAuthUri(secret: string, accountName: string, issuer = 'MyClassLink'): string {
   const params = new URLSearchParams({
     secret,
     issuer,

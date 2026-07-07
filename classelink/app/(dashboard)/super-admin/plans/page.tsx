@@ -8,7 +8,7 @@ export default async function PlansPage() {
     <div className="space-y-6">
       <PageHeader
         title="Plans tarifaires"
-        description="Gérez les offres d'abonnement de la plateforme ClasseLink"
+        description="Gérez les offres d'abonnement de la plateforme MyClassLink"
       />
       <PlansClient plans={plans} />
     </div>

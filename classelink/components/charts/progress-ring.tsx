@@ -6,7 +6,7 @@ interface Props {
   label?:  string
 }
 
-export function ProgressRing({ value, size = 80, stroke = 8, color = '#3b82f6', label }: Props) {
+export function ProgressRing({ value, size = 80, stroke = 8, color = '#4526e0', label }: Props) {
   const r   = (size - stroke) / 2
   const c   = 2 * Math.PI * r
   const off = c - (Math.min(value, 100) / 100) * c

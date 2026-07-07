@@ -230,7 +230,7 @@ export async function sendPaymentReminderSMS(
       channels: ['sms'],
       sms: {
         to:      parentPhone,
-        message: `ClasseLink: Rappel - Un paiement de ${amount} est attendu avant le ${dueDate} pour ${studentName}. Merci de régulariser.`,
+        message: `MyClassLink: Rappel - Un paiement de ${amount} est attendu avant le ${dueDate} pour ${studentName}. Merci de régulariser.`,
       },
     })
     return { success: true }

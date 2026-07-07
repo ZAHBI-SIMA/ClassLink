@@ -61,30 +61,30 @@ export const notificationTemplates = {
   GRADE_PUBLISHED: (studentName: string, subject: string) => ({
     title: 'Nouvelles notes disponibles',
     body: `Les notes de ${subject} pour ${studentName} ont été publiées.`,
-    sms: `ClasseLink: Notes de ${subject} pour ${studentName} disponibles. Consultez votre espace parent.`,
+    sms: `MyClassLink: Notes de ${subject} pour ${studentName} disponibles. Consultez votre espace parent.`,
   }),
 
   ABSENCE_RECORDED: (studentName: string, date: string, subject: string) => ({
     title: 'Absence enregistrée',
     body: `${studentName} a été absent(e) le ${date} en ${subject}.`,
-    sms: `ClasseLink: Absence de ${studentName} le ${date} en ${subject}. Connectez-vous pour justifier.`,
+    sms: `MyClassLink: Absence de ${studentName} le ${date} en ${subject}. Connectez-vous pour justifier.`,
   }),
 
   REPORT_CARD_AVAILABLE: (studentName: string, term: string) => ({
     title: 'Bulletin disponible',
     body: `Le bulletin du ${term} de ${studentName} est disponible.`,
-    sms: `ClasseLink: Bulletin ${term} de ${studentName} disponible. Téléchargez-le sur votre espace.`,
+    sms: `MyClassLink: Bulletin ${term} de ${studentName} disponible. Téléchargez-le sur votre espace.`,
   }),
 
   PAYMENT_RECEIVED: (amount: string, reference: string) => ({
     title: 'Paiement confirmé',
     body: `Votre paiement de ${amount} a été confirmé. Référence : ${reference}`,
-    sms: `ClasseLink: Paiement de ${amount} confirmé. Ref: ${reference}. Merci.`,
+    sms: `MyClassLink: Paiement de ${amount} confirmé. Ref: ${reference}. Merci.`,
   }),
 
   PAYMENT_DUE: (amount: string, dueDate: string) => ({
     title: 'Rappel de paiement',
     body: `Un paiement de ${amount} est dû le ${dueDate}.`,
-    sms: `ClasseLink: Rappel - Paiement de ${amount} attendu le ${dueDate}.`,
+    sms: `MyClassLink: Rappel - Paiement de ${amount} attendu le ${dueDate}.`,
   }),
 }

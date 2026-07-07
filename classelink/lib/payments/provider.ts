@@ -9,7 +9,7 @@ import * as cinetpay from './cinetpay'
  * Chaque école peut configurer son propre PSP (GeniusPay ou CinetPay) dans ses
  * paramètres. Si `payment_enabled` est vrai et les clés présentes, les frais sont
  * collectés sur le compte de l'école ; sinon on retombe sur le compte global
- * ClassLink (GeniusPay via variables d'environnement).
+ * MyClassLink (GeniusPay via variables d'environnement).
  */
 
 export type PaymentProvider = 'GENIUSPAY' | 'CINETPAY'
@@ -95,7 +95,7 @@ export async function initiateSchoolPayment(
     return { ...res, provider: 'GENIUSPAY' }
   }
 
-  // Repli : compte GeniusPay global ClassLink.
+  // Repli : compte GeniusPay global MyClassLink.
   const res = await geniuspay.initiatePayment({
     ...data,
     notifyUrl: notifyUrlFor(data.baseUrl, 'GENIUSPAY'),

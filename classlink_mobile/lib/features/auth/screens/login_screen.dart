@@ -58,16 +58,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Center(
                   child: Column(
                     children: [
-                      Container(
-                        width: 72, height: 72,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(Icons.school_rounded, color: Colors.white, size: 40),
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            width: 72, height: 72,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(Icons.school_rounded, color: Colors.white, size: 40),
+                          ),
+                          // Accent de marque (jaune #FFE965)
+                          Positioned(
+                            right: -4, top: -4,
+                            child: Container(
+                              width: 18, height: 18,
+                              decoration: BoxDecoration(
+                                color: AppTheme.brandAccent,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: AppTheme.surface, width: 3),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
-                      const Text('ClasseLink',
+                      const Text('MyClassLink',
                         style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppTheme.textMain)),
                       const SizedBox(height: 4),
                       Text('Espace élève & parent',

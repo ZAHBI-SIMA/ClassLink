@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static const Color primary   = Color(0xFF2563EB); // blue-600
-  static const Color secondary = Color(0xFF7C3AED); // violet-600
+  static const Color primary   = Color(0xFF1800AD); // bleu de marque MyClassLink
+  // Jaune de marque (#FFE965) assombri à luminosité égale à `warning` : utilisé
+  // ici comme texte/icône sur fond clair, le jaune brut serait illisible.
+  static const Color secondary = Color(0xFFFFDA00);
+  // Jaune de marque exact (#FFE965), réservé aux remplissages/accents décoratifs
+  // (jamais comme couleur de texte ou d'icône : contraste insuffisant).
+  static const Color brandAccent = Color(0xFFFFE965);
   static const Color success   = Color(0xFF16A34A); // green-600
   static const Color warning   = Color(0xFFF59E0B); // amber-500
   static const Color danger    = Color(0xFFDC2626); // red-600

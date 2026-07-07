@@ -318,7 +318,7 @@ export function BulletinView({ data }: { data: BulletinData }) {
 
       {/* Pied de page */}
       <div className="mt-6 border-t border-gray-100 pt-3 text-center text-xs text-gray-300">
-        Bulletin généré par ClassLink · {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+        Bulletin généré par MyClassLink · {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
       </div>
     </div>
   )

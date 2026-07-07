@@ -44,7 +44,7 @@ export default async function EnrollPage({ params }: Props) {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-4">
-          Propulsé par <span className="font-semibold text-blue-600">ClasseLink</span>
+          Propulsé par <span className="font-semibold text-blue-600">MyClassLink</span>
         </p>
       </div>
     </div>

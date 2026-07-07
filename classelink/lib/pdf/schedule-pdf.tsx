@@ -5,7 +5,7 @@ import {
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 
 const PALETTE = [
-  { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af' },
+  { bg: '#efeeff', border: '#c6bfff', text: '#0f006b' },
   { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' },
   { bg: '#faf5ff', border: '#e9d5ff', text: '#6b21a8' },
   { bg: '#fff7ed', border: '#fed7aa', text: '#9a3412' },
@@ -48,11 +48,11 @@ const s = StyleSheet.create({
     justifyContent:      'space-between',
     alignItems:          'flex-end',
     borderBottomWidth:   2,
-    borderBottomColor:   '#1d4ed8',
+    borderBottomColor:   '#13008a',
     paddingBottom:       8,
     marginBottom:        14,
   },
-  schoolName: { fontSize: 11, fontFamily: 'Helvetica-Bold', color: '#1d4ed8' },
+  schoolName: { fontSize: 11, fontFamily: 'Helvetica-Bold', color: '#13008a' },
   headerSub:  { fontSize: 8,  color: '#6b7280', marginTop: 3 },
   docTitle:   { fontSize: 15, fontFamily: 'Helvetica-Bold', color: '#111827', textAlign: 'right' },
   docSub:     { fontSize: 8,  color: '#6b7280', textAlign: 'right', marginTop: 2 },
@@ -63,19 +63,19 @@ const s = StyleSheet.create({
   thTime: {
     width: TIME_COL,
     paddingVertical: 6,
-    backgroundColor: '#1d4ed8',
+    backgroundColor: '#13008a',
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
-    borderRightColor: '#2563eb',
+    borderRightColor: '#1800ad',
   },
   thDay: {
     paddingVertical: 6,
-    backgroundColor: '#1d4ed8',
+    backgroundColor: '#13008a',
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
-    borderRightColor: '#2563eb',
+    borderRightColor: '#1800ad',
   },
   thText: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#ffffff', textAlign: 'center' },
 
@@ -220,7 +220,7 @@ export function SchedulePdf({ schoolName, className, slots }: Props) {
 
         {/* Pied de page */}
         <View style={s.footer}>
-          <Text style={s.footerText}>ClassLink — Gestion Scolaire Numérique</Text>
+          <Text style={s.footerText}>MyClassLink — Gestion Scolaire Numérique</Text>
           <Text style={s.footerText}>{schoolName} · {className}</Text>
         </View>
       </Page>

@@ -2,7 +2,7 @@ import { getSchoolSettings, getSubscriptionInfo, getSchoolSlug } from '@/actions
 import { PageHeader } from '@/components/ui/page-header'
 import { SettingsForm } from './settings-form'
 
-export const metadata = { title: 'Paramètres — ClassLink' }
+export const metadata = { title: 'Paramètres — MyClassLink' }
 
 export default async function SettingsPage() {
   const [settings, subscription, schoolSlug] = await Promise.all([

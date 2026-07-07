@@ -38,7 +38,7 @@ interface WebhookPayload {
 
 const CINETPAY_API = 'https://api-checkout.cinetpay.com/v2/payment'
 
-/** Identifiants CinetPay (par défaut : compte global ClassLink via env). */
+/** Identifiants CinetPay (par défaut : compte global MyClassLink via env). */
 export interface CinetPayCreds {
   apiKey:        string
   siteId:        string

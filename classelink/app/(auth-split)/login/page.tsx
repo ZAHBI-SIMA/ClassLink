@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { LoginForm } from './login-form'
 
-export const metadata: Metadata = { title: 'Connexion — ClasseLink' }
+export const metadata: Metadata = { title: 'Connexion — MyClassLink' }
 
 export default async function LoginPage({
   searchParams,

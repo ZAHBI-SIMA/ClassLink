@@ -2,7 +2,7 @@ import { getFieldTrips } from '@/actions/trips'
 import { PageHeader } from '@/components/ui/page-header'
 import Link from 'next/link'
 
-export const metadata = { title: 'Sorties scolaires — ClassLink' }
+export const metadata = { title: 'Sorties scolaires — MyClassLink' }
 
 const STATUS_LABEL: Record<string, string> = {
   PLANNED:   'Planifiée',

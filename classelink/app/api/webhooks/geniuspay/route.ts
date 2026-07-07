@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     } = data.metadata ?? {}
 
     // ── Paiement d'abonnement SaaS (création d'école) ──────────────────────
-    // Compte GeniusPay global ClassLink → signature avec le secret global.
+    // Compte GeniusPay global MyClassLink → signature avec le secret global.
     if (metadata.kind === 'subscription') {
       const validGlobal = await verifyWebhookSignature(rawBody, timestamp, signature)
       if (!validGlobal) {

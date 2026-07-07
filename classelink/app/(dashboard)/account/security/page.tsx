@@ -36,7 +36,7 @@ export default async function AccountSecurityPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">Sécurité du compte</h1>
-            <p className="text-sm text-gray-500">Gérez la sécurité de votre compte ClasseLink.</p>
+            <p className="text-sm text-gray-500">Gérez la sécurité de votre compte MyClassLink.</p>
           </div>
         </div>
         <Link

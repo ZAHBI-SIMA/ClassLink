@@ -177,8 +177,8 @@ export function ResourcesClient({ resources, bookings }: Props) {
                         width:  `${width}%`,
                         top:    idx * 44 + 4,
                         height: 36,
-                        background: b.status === 'CONFIRMED' ? '#eff6ff' : '#f9fafb',
-                        borderLeft: `3px solid ${b.status === 'CONFIRMED' ? '#2563eb' : '#9ca3af'}`,
+                        background: b.status === 'CONFIRMED' ? '#efeeff' : '#f9fafb',
+                        borderLeft: `3px solid ${b.status === 'CONFIRMED' ? '#1800ad' : '#9ca3af'}`,
                       }}
                     >
                       <p className="text-[10px] font-semibold text-gray-800 truncate leading-tight">

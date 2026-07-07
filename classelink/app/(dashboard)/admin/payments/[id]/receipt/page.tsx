@@ -152,7 +152,7 @@ export default async function PaymentReceiptPage({ params }: Props) {
 
         {/* Pied de page */}
         <div className="border-t border-gray-200 pt-3 text-center text-xs text-gray-400">
-          Reçu généré par ClasseLink · {new Date().toLocaleDateString('fr-FR')}
+          Reçu généré par MyClassLink · {new Date().toLocaleDateString('fr-FR')}
         </div>
       </div>
 

@@ -12,7 +12,7 @@ export default async function SuperAdminPage() {
     <div className="space-y-6">
       <PageHeader
         title="Tableau de bord"
-        description="Vue d'ensemble de la plateforme ClasseLink"
+        description="Vue d'ensemble de la plateforme MyClassLink"
       />
 
       {/* KPIs */}

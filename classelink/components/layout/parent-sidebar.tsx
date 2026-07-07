@@ -159,12 +159,10 @@ export function ParentSidebar({ parentName, schoolName, logoUrl, slogan }: { par
   return (
     <SidebarShell className={`${collapsed ? 'w-16' : 'w-60'} flex-shrink-0 bg-white border-r border-gray-200 transition-all duration-200`}>
       <div className={`py-4 border-b border-gray-100 ${collapsed ? 'px-2' : 'px-5'}`}>
-        {(logoUrl || schoolName) && (
-          <div className={`flex items-center gap-2 ${collapsed ? 'justify-center' : 'mb-2'}`}>
-            {logoUrl && <img src={logoUrl} alt="" className="w-7 h-7 rounded-lg object-cover flex-shrink-0" />}
-            {!collapsed && schoolName && <span className="text-xs font-bold text-gray-900 truncate">{schoolName}</span>}
-          </div>
-        )}
+        <div className={`flex items-center gap-2 ${collapsed ? 'justify-center' : 'mb-2'}`}>
+          <img src={logoUrl || '/logo.png'} alt="Logo" className="w-7 h-7 rounded-lg object-cover flex-shrink-0" />
+          {!collapsed && schoolName && <span className="text-xs font-bold text-gray-900 truncate">{schoolName}</span>}
+        </div>
         {!collapsed && (
           <>
             <p className="text-xs font-semibold text-primary uppercase tracking-wide">{slogan || 'Parent'}</p>
