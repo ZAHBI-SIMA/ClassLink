@@ -292,6 +292,80 @@ export default async function AnalyticsPage() {
         )}
       </div>
 
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+        {/* ── Élèves à risque ──────────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-gray-200">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">Élèves à risque</h3>
+            <span className="text-xs text-gray-400">{data.atRiskStudents.length} détecté(s)</span>
+          </div>
+          {data.atRiskStudents.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">Aucun élève signalé actuellement 🎉</p>
+          ) : (
+            <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+              {data.atRiskStudents.map((s: any) => (
+                <div key={s.student_id} className="flex items-start justify-between gap-3 px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {s.first_name} {s.last_name}
+                      <span className="ml-2 text-xs text-gray-400 font-normal">{s.class_name}</span>
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {s.reasons.map((r: string) => (
+                        <span key={r} className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">{r}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <span className={`flex-shrink-0 text-xs font-bold px-2 py-1 rounded-full ${
+                    s.riskScore >= 2 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                  }`}>
+                    {s.riskScore} facteur{s.riskScore > 1 ? 's' : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Prévisions financières ───────────────────────────── */}
+        <div className="bg-white rounded-xl border border-gray-200">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">Prévisions financières</h3>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-400">Projection mois prochain</p>
+                <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(data.financialForecast.nextMonthProjected)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Taux de recouvrement historique</p>
+                <p className="text-xl font-bold text-gray-900 mt-1">{data.financialForecast.historicalCollectionRate}%</p>
+              </div>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-4">
+              <p className="text-xs text-gray-500">
+                Sur les <strong className="text-gray-700">{formatCurrency(data.financialForecast.pendingTotal)}</strong> encore en attente,
+                environ <strong className="text-gray-700">{formatCurrency(data.financialForecast.expectedFromPending)}</strong> sont
+                effectivement recouvrables au vu de l'historique de recouvrement.
+              </p>
+              {data.financialForecast.monthsToCollectPending !== null && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Au rythme actuel de collecte, il faudrait environ{' '}
+                  <strong className="text-gray-700">
+                    {data.financialForecast.monthsToCollectPending} mois
+                  </strong> pour percevoir la totalité du reste à percevoir.
+                </p>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-400">
+              Projection basée sur la tendance des derniers mois — donnée indicative, pas une garantie.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* ── Inscriptions par niveau ──────────────────────────── */}
       {data.enrollmentByLevel.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-5">

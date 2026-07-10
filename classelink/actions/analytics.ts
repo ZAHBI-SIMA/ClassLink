@@ -155,6 +155,11 @@ export async function getAdminAnalytics() {
     FROM payments
   ` as any[]
 
+  const [atRiskStudents, financialForecast] = await Promise.all([
+    getAtRiskStudents(db),
+    getFinancialForecast(db, paymentTrend as any[]),
+  ])
+
   return {
     gradeDistribution:  gradeDistribution  as any[],
     averagesByClass:    averagesByClass     as any[],
@@ -169,6 +174,137 @@ export async function getAdminAnalytics() {
     gradeEvolution:     gradeEvolution     as any[],
     totalStudents:      studentCountRow?.count ?? 0,
     paymentStats,
+    atRiskStudents,
+    financialForecast,
+  }
+}
+
+// ─── Élèves à risque ───────────────────────────────────────────────────────────
+// Détection par règles explicites (pas d'IA) : un élève est signalé s'il cumule
+// au moins un facteur parmi académique / assiduité / financier. Trié par nombre
+// de facteurs cumulés, puis par moyenne croissante.
+const RISK_ACADEMIC_THRESHOLD    = 10   // moyenne /20 en dessous de laquelle l'élève est à risque
+const RISK_ABSENCE_RATE_THRESHOLD = 20  // % d'absences non justifiées à partir duquel c'est un risque
+
+async function getAtRiskStudents(db: any) {
+  const rows = await db.$queryRaw`
+    WITH active_students AS (
+      SELECT DISTINCT ON (s.id)
+        s.id AS student_id, s.student_id AS student_number,
+        u.first_name, u.last_name, c.name AS class_name
+      FROM students s
+      JOIN users      u ON s.user_id    = u.id
+      JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+      JOIN classes    c ON e.class_id   = c.id
+      JOIN academic_years ay ON c.academic_year_id = ay.id AND ay.is_current = TRUE
+    ),
+    academic AS (
+      SELECT g.student_id, ROUND(AVG(g.value * 20.0 / g.max_value)::numeric, 2) AS average
+      FROM grades g
+      JOIN terms t ON g.term_id = t.id
+      JOIN academic_years ay ON t.academic_year_id = ay.id AND ay.is_current = TRUE
+      GROUP BY g.student_id
+    ),
+    attendance AS (
+      SELECT
+        a.student_id,
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE a.status = 'ABSENT' AND NOT a.justified)::int AS unexcused_absences
+      FROM attendances a
+      GROUP BY a.student_id
+    ),
+    financial AS (
+      SELECT p.student_id, COUNT(*)::int AS overdue_count, COALESCE(SUM(p.amount), 0)::float AS overdue_amount
+      FROM payments p
+      WHERE p.status = 'PENDING' AND p.due_date IS NOT NULL AND p.due_date < NOW()
+      GROUP BY p.student_id
+    )
+    SELECT
+      ast.student_id, ast.student_number, ast.first_name, ast.last_name, ast.class_name,
+      ac.average,
+      COALESCE(at.unexcused_absences, 0) AS unexcused_absences,
+      COALESCE(at.total, 0)              AS attendance_total,
+      CASE WHEN COALESCE(at.total, 0) > 0
+        THEN ROUND((COALESCE(at.unexcused_absences, 0) * 100.0 / at.total)::numeric, 1)
+        ELSE 0
+      END AS absence_rate,
+      COALESCE(fin.overdue_count, 0)  AS overdue_count,
+      COALESCE(fin.overdue_amount, 0) AS overdue_amount
+    FROM active_students ast
+    LEFT JOIN academic   ac  ON ac.student_id  = ast.student_id
+    LEFT JOIN attendance at  ON at.student_id  = ast.student_id
+    LEFT JOIN financial  fin ON fin.student_id = ast.student_id
+    WHERE
+      (ac.average IS NOT NULL AND ac.average < ${RISK_ACADEMIC_THRESHOLD})
+      OR (COALESCE(at.total, 0) > 0 AND (COALESCE(at.unexcused_absences, 0) * 100.0 / at.total) > ${RISK_ABSENCE_RATE_THRESHOLD})
+      OR COALESCE(fin.overdue_count, 0) > 0
+  `
+
+  return (rows as any[])
+    .map(r => {
+      const reasons: string[] = []
+      if (r.average !== null && parseFloat(r.average) < RISK_ACADEMIC_THRESHOLD) {
+        reasons.push(`Moyenne faible (${parseFloat(r.average).toFixed(2)}/20)`)
+      }
+      if (parseFloat(r.absence_rate) > RISK_ABSENCE_RATE_THRESHOLD) {
+        reasons.push(`${r.absence_rate}% d'absences non justifiées`)
+      }
+      if (r.overdue_count > 0) {
+        reasons.push(`${r.overdue_count} paiement(s) en retard`)
+      }
+      return { ...r, reasons, riskScore: reasons.length }
+    })
+    .sort((a, b) => b.riskScore - a.riskScore || (parseFloat(a.average ?? '20') - parseFloat(b.average ?? '20')))
+    .slice(0, 30)
+}
+
+// ─── Prévisions financières ────────────────────────────────────────────────────
+// Régression linéaire simple sur la tendance des 6 derniers mois pour projeter
+// le mois suivant, combinée au taux de recouvrement historique pour estimer la
+// part réellement encaissable du reste à percevoir.
+async function getFinancialForecast(db: any, monthlyTrend: any[]) {
+  const points = monthlyTrend
+    .map((m, i) => ({ x: i, y: Number(m.collected) || 0 }))
+    .filter(p => p.y > 0 || monthlyTrend.length <= 3) // ignore les mois à 0 si assez d'historique
+
+  const n = points.length
+  let nextMonthProjected = 0
+  if (n >= 2) {
+    const sumX  = points.reduce((s, p) => s + p.x, 0)
+    const sumY  = points.reduce((s, p) => s + p.y, 0)
+    const sumXY = points.reduce((s, p) => s + p.x * p.y, 0)
+    const sumXX = points.reduce((s, p) => s + p.x * p.x, 0)
+    const denom = n * sumXX - sumX * sumX
+    const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0
+    const intercept = (sumY - slope * sumX) / n
+    nextMonthProjected = Math.max(0, Math.round(slope * n + intercept))
+  } else if (n === 1) {
+    nextMonthProjected = Math.round(points[0].y)
+  }
+
+  const [{ pending, collected }] = await db.$queryRaw`
+    SELECT
+      COALESCE(SUM(amount) FILTER (WHERE status = 'PENDING'), 0)::float AS pending,
+      COALESCE(SUM(amount) FILTER (WHERE status = 'SUCCESS'), 0)::float AS collected
+    FROM payments
+  ` as any[]
+
+  // Taux de recouvrement historique = collecté / (collecté + en attente)
+  const historicalCollectionRate = (collected + pending) > 0 ? collected / (collected + pending) : 0
+  const expectedFromPending = Math.round(pending * historicalCollectionRate)
+
+  // Vitesse moyenne de collecte mensuelle (hors mois à 0) → délai estimé pour percevoir le reste
+  const avgMonthly = points.length > 0
+    ? points.reduce((s, p) => s + p.y, 0) / points.length
+    : 0
+  const monthsToCollectPending = avgMonthly > 0 ? Math.ceil(pending / avgMonthly) : null
+
+  return {
+    nextMonthProjected,
+    pendingTotal: pending,
+    expectedFromPending,
+    historicalCollectionRate: Math.round(historicalCollectionRate * 100),
+    monthsToCollectPending,
   }
 }
 
