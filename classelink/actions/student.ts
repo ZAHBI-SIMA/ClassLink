@@ -53,7 +53,7 @@ export async function getStudentGrades(termId: string) {
 
   const { id: studentId, level_id: levelId } = student[0]
 
-  const subjects: any[] = await db.$queryRaw`
+  const subjectRows: any[] = await db.$queryRaw`
     SELECT s.id, s.name, s.code, COALESCE(ls.coefficient, 1) AS coefficient
     FROM subjects s
     LEFT JOIN level_subjects ls ON ls.subject_id = s.id AND ls.level_id = ${levelId}
@@ -62,13 +62,15 @@ export async function getStudentGrades(termId: string) {
     )
     ORDER BY s.name
   `
+  const subjects = subjectRows.map(s => ({ ...s, coefficient: Number(s.coefficient) }))
 
-  const grades: any[] = await db.$queryRaw`
+  const gradeRows: any[] = await db.$queryRaw`
     SELECT g.id, g.subject_id, g.type, g.value, g.coefficient, g.comment, g.created_at
     FROM grades g
     WHERE g.student_id = ${studentId} AND g.term_id = ${termId}
     ORDER BY g.created_at
   `
+  const grades = gradeRows.map(g => ({ ...g, value: Number(g.value), coefficient: Number(g.coefficient) }))
 
   const gradesBySubject: Record<string, any[]> = {}
   for (const g of grades) {

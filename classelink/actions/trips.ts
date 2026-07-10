@@ -222,7 +222,7 @@ export async function getParentTrips(): Promise<any[]> {
       AND ft.status IN ('PLANNED', 'CONFIRMED')
     ORDER BY ft.trip_date ASC
   `
-  return rows
+  return rows.map(r => ({ ...r, cost: r.cost !== null ? Number(r.cost) : null }))
 }
 
 // ─── Autoriser / refuser une sortie (PARENT) ──────────────────────────────────

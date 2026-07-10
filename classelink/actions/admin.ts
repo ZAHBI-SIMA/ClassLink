@@ -771,7 +771,7 @@ export async function getClassGradesOverview(classId: string, termId: string) {
   const { db } = await getDb()
 
   // Subjects for this class's level (with coefficients)
-  const subjects: any[] = await db.$queryRaw`
+  const subjectRows: any[] = await db.$queryRaw`
     SELECT s.id, s.name, s.code, ls.coefficient
     FROM subjects s
     JOIN level_subjects ls ON ls.subject_id = s.id
