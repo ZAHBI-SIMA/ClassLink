@@ -2,6 +2,7 @@ import { getChildDetails, getChildWeeklySummary } from '@/actions/parent'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChildTabs } from '../child-tabs'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 interface Props { params: Promise<{ studentId: string }> }
 
@@ -60,6 +61,7 @@ export default async function ResumePage({ params }: Props) {
 
       <ChildTabs studentId={studentId} />
 
+      <ParentPaywall featureName="Le résumé hebdomadaire">
       {!summary ? (
         <div className="bg-red-50 rounded-xl border border-red-200 p-4 text-sm text-red-700">
           Impossible de charger le résumé.
@@ -177,6 +179,7 @@ export default async function ResumePage({ params }: Props) {
 
         </div>
       )}
+      </ParentPaywall>
     </div>
   )
 }

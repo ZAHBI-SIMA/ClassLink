@@ -2,6 +2,7 @@ import { getChildDetails, getChildSchedule } from '@/actions/parent'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChildTabs } from '../child-tabs'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 interface Props { params: Promise<{ studentId: string }> }
 
@@ -89,6 +90,7 @@ export default async function ChildSchedulePage({ params }: Props) {
 
       <ChildTabs studentId={studentId} />
 
+      <ParentPaywall featureName="L'emploi du temps">
       {schedule.length === 0 ? (
         <div className="bg-white rounded-xl border border-dashed border-gray-300 py-14 text-center">
           <svg className="w-10 h-10 text-gray-200 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,6 +147,7 @@ export default async function ChildSchedulePage({ params }: Props) {
           </div>
         </>
       )}
+      </ParentPaywall>
     </div>
   )
 }

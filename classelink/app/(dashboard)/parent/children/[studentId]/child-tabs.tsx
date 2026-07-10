@@ -10,6 +10,7 @@ const TABS = [
   { href: '/emploi-du-temps',  label: 'Emploi du temps'  },
   { href: '/bulletin',         label: 'Bulletin'         },
   { href: '/sanctions',        label: 'Sanctions'        },
+  { href: '/liaison',          label: 'Carnet de liaison' },
   { href: '/agenda',           label: 'Agenda'           },
   { href: '/resume',           label: 'Résumé'           },
 ]

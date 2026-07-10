@@ -2,6 +2,7 @@ import { getParentChildren } from '@/actions/parent'
 import { getChildAbsencesForJustification } from '@/actions/parent'
 import { PageHeader } from '@/components/ui/page-header'
 import { JustifyForm } from './justify-form'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 export default async function ParentAbsencesPage() {
   const children = await getParentChildren()
@@ -13,6 +14,7 @@ export default async function ParentAbsencesPage() {
         description="Soumettez des justificatifs pour les absences non justifiées de vos enfants"
       />
 
+      <ParentPaywall featureName="La justification des absences">
       {children.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
           <p className="text-sm text-gray-400 italic">Aucun enfant associé à votre compte.</p>
@@ -24,6 +26,7 @@ export default async function ParentAbsencesPage() {
           ))}
         </div>
       )}
+      </ParentPaywall>
     </div>
   )
 }

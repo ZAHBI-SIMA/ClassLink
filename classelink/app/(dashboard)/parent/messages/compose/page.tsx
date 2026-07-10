@@ -1,6 +1,7 @@
 import { getContacts } from '@/actions/messages'
 import { ComposeForm } from '@/components/messages/compose-form'
 import Link from 'next/link'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 export const metadata = { title: 'Nouveau message' }
 
@@ -25,6 +26,7 @@ export default async function ParentComposeMessagePage({ searchParams }: Props) 
           <h1 className="text-2xl font-bold text-gray-900">Nouveau message</h1>
         </div>
 
+        <ParentPaywall featureName="La messagerie">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <ComposeForm
             contacts={contacts}
@@ -32,6 +34,7 @@ export default async function ParentComposeMessagePage({ searchParams }: Props) 
             defaultSubject={subject}
           />
         </div>
+        </ParentPaywall>
       </div>
     </div>
   )

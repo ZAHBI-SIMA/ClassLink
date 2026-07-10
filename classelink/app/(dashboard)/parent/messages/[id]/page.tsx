@@ -1,6 +1,7 @@
 import { getMessage } from '@/actions/messages'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -23,6 +24,7 @@ export default async function ParentMessageDetailPage({ params }: Props) {
         </Link>
       </div>
 
+      <ParentPaywall featureName="La messagerie">
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-100">
           <h1 className="text-lg font-semibold text-gray-900">{msg.subject}</h1>
@@ -61,6 +63,7 @@ export default async function ParentMessageDetailPage({ params }: Props) {
           </Link>
         </div>
       </div>
+      </ParentPaywall>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { getChildDetails, getChildSanctions } from '@/actions/parent'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChildTabs } from '../child-tabs'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 interface Props { params: Promise<{ studentId: string }> }
 
@@ -51,6 +52,7 @@ export default async function SanctionsPage({ params }: Props) {
 
       <ChildTabs studentId={studentId} />
 
+      <ParentPaywall featureName="L'historique des sanctions">
       {sanctions.length === 0 ? (
         <div className="bg-white rounded-xl border border-dashed border-gray-300 py-16 text-center">
           <div className="text-4xl mb-3">✅</div>
@@ -92,6 +94,7 @@ export default async function SanctionsPage({ params }: Props) {
           })}
         </div>
       )}
+      </ParentPaywall>
     </div>
   )
 }

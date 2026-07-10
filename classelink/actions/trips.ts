@@ -4,6 +4,7 @@ import { getTenantPrisma } from '@/lib/db/tenant'
 import { requireRole } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
 import { toActionError } from '@/lib/errors'
+import { getParentSubscriptionStatus } from '@/actions/parent'
 import type { ActionResult } from '@/types'
 
 async function getDb() {
@@ -230,7 +231,8 @@ export async function authorizeTrip(
   tripId: string,
   studentId: string,
   authorized: boolean,
-  notes?: string
+  notes?: string,
+  signatureData?: string
 ): Promise<ActionResult> {
   try {
     const session = await requireRole('PARENT')
@@ -245,18 +247,36 @@ export async function authorizeTrip(
     `
     if (!check[0]) return { success: false, error: 'Accès non autorisé.' }
 
+    if (authorized && !signatureData) {
+      return { success: false, error: 'Une signature est requise pour autoriser la sortie.' }
+    }
+
+    // La signature (autorisation) nécessite l'abonnement MyClassLink actif — vérifié
+    // ici côté serveur (le refus, lui, reste toujours accessible gratuitement).
+    if (authorized) {
+      const subscription = await getParentSubscriptionStatus()
+      if (!subscription.success || !subscription.data?.paid) {
+        return { success: false, error: 'Un abonnement MyClassLink actif est requis pour autoriser cette sortie.' }
+      }
+    }
+
     const newStatus = authorized ? 'AUTHORIZED' : 'REFUSED'
 
-    await db.$executeRaw`
+    const affected = await db.$executeRaw`
       UPDATE trip_authorizations
-      SET status     = ${newStatus},
-          signed_at  = NOW(),
-          notes      = ${notes ?? null},
-          updated_at = NOW()
+      SET status         = ${newStatus},
+          signed_at      = NOW(),
+          notes          = ${notes ?? null},
+          signature_data = ${authorized ? signatureData : null},
+          updated_at     = NOW()
       WHERE trip_id   = ${tripId}
         AND student_id = ${studentId}
     `
+    if (affected === 0) {
+      return { success: false, error: 'Autorisation introuvable pour cet élève et cette sortie.' }
+    }
     revalidatePath('/parent/trips')
+    revalidatePath('/parent/liaison')
     return { success: true }
   } catch (error) {
     return { success: false, error: toActionError(error) }

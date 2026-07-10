@@ -2,6 +2,7 @@ import { getChildDetails, getChildAgenda } from '@/actions/parent'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChildTabs } from '../child-tabs'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 interface Props {
   params: Promise<{ studentId: string }>
@@ -85,6 +86,7 @@ export default async function AgendaPage({ params, searchParams }: Props) {
 
       <ChildTabs studentId={studentId} />
 
+      <ParentPaywall featureName="L'agenda scolaire">
       {/* Month navigation */}
       <div className="flex items-center justify-between">
         <Link
@@ -156,6 +158,7 @@ export default async function AgendaPage({ params, searchParams }: Props) {
           })}
         </div>
       )}
+      </ParentPaywall>
     </div>
   )
 }

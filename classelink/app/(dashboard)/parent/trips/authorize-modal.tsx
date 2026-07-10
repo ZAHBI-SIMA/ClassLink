@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { authorizeTrip } from '@/actions/trips'
+import { authorizeTrip, } from '@/actions/trips'
+import { getParentSubscriptionStatus } from '@/actions/parent'
+import { SignaturePad } from '@/components/ui/signature-pad'
+import { PaySubscriptionButton } from '@/components/ui/pay-subscription-button'
 
 interface Props {
   tripId: string
@@ -14,18 +17,34 @@ interface Props {
 export function AuthorizeModal({ tripId, studentId, studentName, tripTitle, onClose }: Props) {
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [showSignature, setShowSignature] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [checkingPayment, setCheckingPayment] = useState(false)
+  const [locked, setLocked] = useState<{ childrenCount: number; amountDue: number } | null>(null)
 
-  function handleAction(authorized: boolean) {
+  function submit(authorized: boolean, signatureData?: string) {
     setError(null)
     startTransition(async () => {
-      const result = await authorizeTrip(tripId, studentId, authorized, notes || undefined)
+      const result = await authorizeTrip(tripId, studentId, authorized, notes || undefined, signatureData)
       if (!result.success) {
         setError(result.error ?? 'Une erreur est survenue.')
       } else {
         onClose()
       }
     })
+  }
+
+  // La signature (autorisation) nécessite l'abonnement MyClassLink actif —
+  // le refus, lui, reste toujours accessible gratuitement.
+  async function handleAuthorizeClick() {
+    setCheckingPayment(true)
+    const status = await getParentSubscriptionStatus()
+    setCheckingPayment(false)
+    if (status.success && status.data && !status.data.paid) {
+      setLocked({ childrenCount: status.data.childrenCount, amountDue: status.data.amountDue })
+      return
+    }
+    setShowSignature(true)
   }
 
   return (
@@ -50,18 +69,20 @@ export function AuthorizeModal({ tripId, studentId, studentName, tripTitle, onCl
           <span className="font-medium">Élève :</span> {studentName}
         </div>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Notes / commentaires <span className="text-gray-400 font-normal">(optionnel)</span>
-          </label>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            rows={3}
-            placeholder="Ajouter un commentaire..."
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-          />
-        </div>
+        {!locked && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notes / commentaires <span className="text-gray-400 font-normal">(optionnel)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={2}
+              placeholder="Ajouter un commentaire..."
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+            />
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
@@ -69,22 +90,51 @@ export function AuthorizeModal({ tripId, studentId, studentName, tripTitle, onCl
           </div>
         )}
 
-        <div className="flex gap-3">
-          <button
-            onClick={() => handleAction(false)}
-            disabled={isPending}
-            className="flex-1 px-4 py-2.5 border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 text-sm font-medium rounded-lg transition disabled:opacity-50"
-          >
-            Refuser
-          </button>
-          <button
-            onClick={() => handleAction(true)}
-            disabled={isPending}
-            className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
-          >
-            {isPending ? 'En cours...' : 'Autoriser'}
-          </button>
-        </div>
+        {locked ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center space-y-3">
+            <p className="text-sm font-semibold text-gray-900">Abonnement MyClassLink requis</p>
+            <p className="text-xs text-gray-600">
+              La signature numérique des autorisations de sortie nécessite un abonnement actif
+              ({locked.childrenCount} enfant{locked.childrenCount > 1 ? 's' : ''} × 2 000 FCFA ={' '}
+              <strong>{locked.amountDue.toLocaleString('fr-FR')} FCFA/an</strong>).
+            </p>
+            <PaySubscriptionButton label="Payer et débloquer" />
+            <button
+              onClick={() => setLocked(null)}
+              className="block mx-auto text-xs text-gray-400 hover:text-gray-600"
+            >
+              Retour
+            </button>
+          </div>
+        ) : showSignature ? (
+          <div className="mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Signez pour confirmer votre autorisation
+            </label>
+            <SignaturePad
+              disabled={isPending}
+              onCancel={() => setShowSignature(false)}
+              onSave={dataUrl => submit(true, dataUrl)}
+            />
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            <button
+              onClick={() => submit(false)}
+              disabled={isPending}
+              className="flex-1 px-4 py-2.5 border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 text-sm font-medium rounded-lg transition disabled:opacity-50"
+            >
+              Refuser
+            </button>
+            <button
+              onClick={handleAuthorizeClick}
+              disabled={isPending || checkingPayment}
+              className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
+            >
+              {checkingPayment ? 'Vérification…' : 'Autoriser'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

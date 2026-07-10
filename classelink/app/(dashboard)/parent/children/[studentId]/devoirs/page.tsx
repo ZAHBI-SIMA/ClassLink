@@ -2,6 +2,7 @@ import { getChildDetails, getChildAssignments } from '@/actions/parent'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChildTabs } from '../child-tabs'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 interface Props { params: Promise<{ studentId: string }> }
 
@@ -58,6 +59,7 @@ export default async function ChildDevoirsPage({ params }: Props) {
 
       <ChildTabs studentId={studentId} />
 
+      <ParentPaywall featureName="Les devoirs & exercices">
       {/* Stats rapides */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
@@ -100,6 +102,7 @@ export default async function ChildDevoirsPage({ params }: Props) {
           <p className="text-gray-400 text-sm">Aucun devoir enregistré pour cette classe.</p>
         </div>
       )}
+      </ParentPaywall>
     </div>
   )
 }

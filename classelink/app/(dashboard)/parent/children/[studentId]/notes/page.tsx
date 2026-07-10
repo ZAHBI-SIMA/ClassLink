@@ -2,6 +2,7 @@ import { getChildDetails, getChildGrades } from '@/actions/parent'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChildTabs } from '../child-tabs'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 interface Props { params: Promise<{ studentId: string }> }
 
@@ -72,6 +73,7 @@ export default async function ChildNotesPage({ params }: Props) {
 
       <ChildTabs studentId={studentId} />
 
+      <ParentPaywall featureName="Les notes & moyennes">
       {/* Récapitulatif moyennes par trimestre */}
       <div className="grid grid-cols-3 gap-3">
         {termList.map(t => {
@@ -174,6 +176,7 @@ export default async function ChildNotesPage({ params }: Props) {
           <p className="text-gray-400 text-sm">Aucune note enregistrée pour cette année.</p>
         </div>
       )}
+      </ParentPaywall>
     </div>
   )
 }

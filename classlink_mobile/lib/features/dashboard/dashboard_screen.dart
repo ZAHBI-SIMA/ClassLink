@@ -105,6 +105,8 @@ class DashboardScreen extends ConsumerWidget {
                 _QuickAction(icon: Icons.receipt_long_rounded,     label: 'Paiements',      color: const Color(0xFF0891B2),       onTap: () => context.push('/payments')),
                 if (user.isParent)
                   _QuickAction(icon: Icons.people_rounded,         label: 'Mes enfants',    color: AppTheme.secondary,            onTap: () => context.push('/parent/children')),
+                if (user.isParent)
+                  _QuickAction(icon: Icons.hiking_rounded,         label: 'Sorties',        color: const Color(0xFFEA580C),       onTap: () => context.push('/trips')),
               ],
             ),
           ],

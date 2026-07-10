@@ -1,6 +1,7 @@
 import { getInbox, getSent } from '@/actions/messages'
 import { MessageList } from '@/components/messages/message-list'
 import Link from 'next/link'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 export const metadata = { title: 'Messagerie' }
 
@@ -29,6 +30,7 @@ export default async function ParentMessagesPage({ searchParams }: Props) {
         </Link>
       </div>
 
+      <ParentPaywall featureName="La messagerie">
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="flex border-b border-gray-200">
           <Link
@@ -55,6 +57,7 @@ export default async function ParentMessagesPage({ searchParams }: Props) {
 
         <MessageList messages={messages} type={activeTab} basePath="/parent/messages" />
       </div>
+      </ParentPaywall>
     </div>
   )
 }

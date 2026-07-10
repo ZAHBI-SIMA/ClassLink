@@ -6,6 +6,9 @@ import { requireRole } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
 import type { ActionResult } from '@/types'
 import { initiateSchoolPayment } from '@/lib/payments/provider'
+import { initiatePayment as initiateGlobalPayment } from '@/lib/payments/geniuspay'
+import { generateStudentQrCode } from '@/lib/qrcode'
+import { PARENT_FEE_PER_CHILD } from '@/lib/parent-fee'
 
 async function getParentDb() {
   const session = await requireRole('PARENT')
@@ -165,6 +168,12 @@ export async function submitJustification(
 
     if (!attendanceId || !justification) {
       return { success: false, error: 'Identifiant de présence et justification requis.' }
+    }
+
+    // Fonctionnalité verrouillée tant que l'abonnement MyClassLink n'est pas réglé
+    const subscription = await getParentSubscriptionStatus()
+    if (!subscription.success || !subscription.data?.paid) {
+      return { success: false, error: 'Un abonnement MyClassLink actif est requis pour justifier une absence.' }
     }
 
     // Récupérer l'attendance pour vérifier la parenté
@@ -496,4 +505,220 @@ export async function getParentPayments() {
       p.due_date ASC NULLS LAST,
       p.created_at DESC
   ` as Promise<any[]>)
+}
+
+// ─── Carnet de liaison numérique ───────────────────────────────────────────────
+
+export async function getChildConvocations(studentId: string): Promise<ActionResult<any[]>> {
+  try {
+    const { db, session } = await getParentDb()
+    if (!(await assertOwnership(db, session.user.id, studentId)))
+      return { success: false, error: 'Accès non autorisé.' }
+
+    const rows: any[] = await db.$queryRaw`
+      SELECT c.id, c.type, c.reason, c.scheduled_at, c.location, c.status, c.notes, c.created_at,
+             u.first_name AS issuer_first, u.last_name AS issuer_last
+      FROM convocations c
+      LEFT JOIN users u ON u.id = c.issued_by
+      WHERE c.student_id = ${studentId}
+      ORDER BY c.scheduled_at DESC
+    `
+    return { success: true, data: rows }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur' }
+  }
+}
+
+/**
+ * Carnet de liaison : fusionne convocations, sanctions et autorisations de sortie
+ * dans un flux chronologique unique. Les sorties en attente sont signalées comme
+ * nécessitant une signature (voir `authorizeTrip`).
+ */
+export async function getLiaisonFeed(studentId: string): Promise<ActionResult<any[]>> {
+  try {
+    const { db, session } = await getParentDb()
+    if (!(await assertOwnership(db, session.user.id, studentId)))
+      return { success: false, error: 'Accès non autorisé.' }
+
+    const [convocations, sanctions, trips] = await Promise.all([
+      db.$queryRaw`
+        SELECT c.id, 'CONVOCATION' AS kind, c.type AS subtype, c.reason AS title,
+               c.scheduled_at AS event_date, c.location, c.status, c.created_at
+        FROM convocations c
+        WHERE c.student_id = ${studentId}
+      `,
+      db.$queryRaw`
+        SELECT s.id, 'SANCTION' AS kind, s.type AS subtype, s.reason AS title,
+               s.date AS event_date, NULL AS location, NULL AS status, s.created_at
+        FROM sanctions s
+        WHERE s.student_id = ${studentId}
+      `,
+      db.$queryRaw`
+        SELECT ta.id, 'SORTIE' AS kind, ft.title AS subtype, ft.title AS title,
+               ft.trip_date AS event_date, ft.destination AS location, ta.status, ta.created_at,
+               ft.id AS trip_id, ta.signature_data IS NOT NULL AS signed
+        FROM trip_authorizations ta
+        JOIN field_trips ft ON ft.id = ta.trip_id
+        WHERE ta.student_id = ${studentId}
+      `,
+    ])
+
+    const feed = [...convocations, ...sanctions, ...trips]
+      .sort((a: any, b: any) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())
+
+    return { success: true, data: feed }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur' }
+  }
+}
+
+/** Carte d'élève numérique (QR code de vérification d'identité). */
+export async function getChildIdCard(studentId: string): Promise<ActionResult<{ studentNumber: string; qrCode: string; firstName: string; lastName: string; className: string | null }>> {
+  try {
+    const { db, session } = await getParentDb()
+    if (!(await assertOwnership(db, session.user.id, studentId)))
+      return { success: false, error: 'Accès non autorisé.' }
+
+    const rows: any[] = await db.$queryRaw`
+      SELECT s.student_id AS student_number, u.first_name, u.last_name, c.name AS class_name
+      FROM students s
+      JOIN users u ON u.id = s.user_id
+      LEFT JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+      LEFT JOIN classes c     ON c.id = e.class_id
+      WHERE s.id = ${studentId}
+      LIMIT 1
+    `
+    const row = rows[0]
+    if (!row) return { success: false, error: 'Élève introuvable.' }
+
+    const qrCode = await generateStudentQrCode(row.student_number)
+    return {
+      success: true,
+      data: { studentNumber: row.student_number, qrCode, firstName: row.first_name, lastName: row.last_name, className: row.class_name },
+    }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur' }
+  }
+}
+
+// ─── Abonnement parent MyClassLink (2000 FCFA/an/enfant) ───────────────────────
+
+export interface ParentSubscriptionStatus {
+  paid: boolean
+  childrenCount: number
+  amountDue: number
+  academicYearName: string | null
+}
+
+/** Nombre d'enfants actifs (inscription en cours) rattachés à ce parent. */
+async function getActiveChildrenCount(db: any, parentUserId: string): Promise<{ count: number; academicYearId: string | null; academicYearName: string | null }> {
+  const rows: any[] = await db.$queryRaw`
+    SELECT COUNT(DISTINCT s.id)::int AS count, ay.id AS academic_year_id, ay.name AS academic_year_name
+    FROM parent_students ps
+    JOIN parents p ON p.id = ps.parent_id
+    JOIN students s ON s.id = ps.student_id
+    JOIN enrollments e ON e.student_id = s.id AND e.status = 'ACTIVE'
+    JOIN classes c ON c.id = e.class_id
+    JOIN academic_years ay ON ay.id = c.academic_year_id AND ay.is_current = TRUE
+    WHERE p.user_id = ${parentUserId}
+    GROUP BY ay.id, ay.name
+  `
+  const row = rows[0]
+  return {
+    count: row?.count ?? 0,
+    academicYearId: row?.academic_year_id ?? null,
+    academicYearName: row?.academic_year_name ?? null,
+  }
+}
+
+/** Statut d'abonnement du parent connecté pour l'année scolaire en cours. */
+export async function getParentSubscriptionStatus(): Promise<ActionResult<ParentSubscriptionStatus>> {
+  try {
+    const { db, session } = await getParentDb()
+    const { count, academicYearId, academicYearName } = await getActiveChildrenCount(db, session.user.id)
+
+    if (count === 0 || !academicYearId) {
+      return { success: true, data: { paid: true, childrenCount: 0, amountDue: 0, academicYearName } }
+    }
+
+    const parentRows: any[] = await db.$queryRaw`SELECT id FROM parents WHERE user_id = ${session.user.id} LIMIT 1`
+    const parentId = parentRows[0]?.id
+    if (!parentId) return { success: false, error: 'Profil parent introuvable.' }
+
+    const subRows: any[] = await db.$queryRaw`
+      SELECT status FROM parent_subscriptions
+      WHERE parent_id = ${parentId} AND academic_year_id = ${academicYearId}
+      LIMIT 1
+    `
+    const paid = subRows[0]?.status === 'SUCCESS'
+
+    return {
+      success: true,
+      data: { paid, childrenCount: count, amountDue: count * PARENT_FEE_PER_CHILD, academicYearName },
+    }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur' }
+  }
+}
+
+/**
+ * Initie le paiement de l'abonnement MyClassLink du parent (compte global —
+ * ceci finance la plateforme, pas l'école : ne passe jamais par le PSP de
+ * l'établissement).
+ */
+export async function initiateParentSubscriptionPayment(): Promise<ActionResult<{ paymentUrl: string }>> {
+  try {
+    const { db, session } = await getParentDb()
+    const { count, academicYearId } = await getActiveChildrenCount(db, session.user.id)
+
+    if (count === 0 || !academicYearId) {
+      return { success: false, error: 'Aucun enfant actif rattaché à votre compte.' }
+    }
+
+    const parentRows: any[] = await db.$queryRaw`SELECT id FROM parents WHERE user_id = ${session.user.id} LIMIT 1`
+    const parentId = parentRows[0]?.id
+    if (!parentId) return { success: false, error: 'Profil parent introuvable.' }
+
+    const amount = count * PARENT_FEE_PER_CHILD
+
+    // Recrée/rafraîchit une ligne PENDING (le nombre d'enfants peut avoir changé)
+    const subRows: any[] = await db.$queryRaw`
+      INSERT INTO parent_subscriptions (parent_id, academic_year_id, children_count, amount, status)
+      VALUES (${parentId}, ${academicYearId}, ${count}, ${amount}, 'PENDING')
+      ON CONFLICT (parent_id, academic_year_id) DO UPDATE
+        SET children_count = EXCLUDED.children_count,
+            amount         = EXCLUDED.amount,
+            status         = CASE WHEN parent_subscriptions.status = 'SUCCESS' THEN 'SUCCESS' ELSE 'PENDING' END,
+            updated_at     = NOW()
+      RETURNING id, status
+    `
+    const subscription = subRows[0]
+    if (subscription.status === 'SUCCESS') {
+      return { success: false, error: 'Votre abonnement est déjà réglé pour cette année scolaire.' }
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    const schemaName = session.user.schemaName
+
+    const init = await initiateGlobalPayment({
+      amount,
+      description: `Abonnement MyClassLink ${count} enfant${count > 1 ? 's' : ''} — ${session.user.name ?? session.user.email}`,
+      customerId: session.user.id,
+      customerName: session.user.name ?? session.user.email ?? '',
+      customerEmail: session.user.email ?? '',
+      returnUrl: `${baseUrl}/parent/subscription/return`,
+      notifyUrl: `${baseUrl}/api/webhooks/geniuspay`,
+      metadata: { kind: 'parent_subscription', schemaName, parentSubscriptionId: subscription.id },
+    })
+
+    await db.$executeRaw`
+      UPDATE parent_subscriptions
+      SET provider = 'GENIUSPAY', provider_ref = ${init.transactionId}, updated_at = NOW()
+      WHERE id = ${subscription.id}
+    `
+
+    return { success: true, data: { paymentUrl: init.paymentUrl } }
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? 'Erreur lors de l\'initiation du paiement.' }
+  }
 }

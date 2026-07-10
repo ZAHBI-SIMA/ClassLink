@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyWebhookSignature } from '@/lib/payments/geniuspay'
+import { verifyWebhookSignature, verifyPayment as geniuspayVerifyGlobal } from '@/lib/payments/geniuspay'
 import { getSchoolPaymentConfig, verifySchoolPayment } from '@/lib/payments/provider'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { activateSchoolIfPaid } from '@/actions/register'
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       schemaName?: string
       studentId?: string
       schoolId?: string
+      parentSubscriptionId?: string
     } = data.metadata ?? {}
 
     // ── Paiement d'abonnement SaaS (création d'école) ──────────────────────
@@ -43,6 +44,37 @@ export async function POST(request: NextRequest) {
       }
       const res = await activateSchoolIfPaid(metadata.schoolId)
       console.info(`[GeniusPay webhook] Abonnement ${metadata.schoolId} → ${res.status}`)
+      return NextResponse.json({ received: true })
+    }
+
+    // ── Abonnement parent MyClassLink (2000 FCFA/an/enfant) ────────────────
+    // Compte GeniusPay global MyClassLink (jamais celui de l'école) → signature
+    // avec le secret global, comme pour l'abonnement SaaS.
+    if (metadata.kind === 'parent_subscription') {
+      const validGlobal = await verifyWebhookSignature(rawBody, timestamp, signature)
+      if (!validGlobal) {
+        console.error('[GeniusPay webhook] Signature invalide (abonnement parent)')
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+      }
+      if (!metadata.parentSubscriptionId || !metadata.schemaName || !reference) {
+        return NextResponse.json({ error: 'Missing metadata fields' }, { status: 400 })
+      }
+      const verification = await geniuspayVerifyGlobal(reference)
+      const tenantDb = getTenantPrisma(metadata.schemaName) as any
+      if (verification.status === 'ACCEPTED') {
+        await tenantDb.$executeRaw`
+          UPDATE parent_subscriptions
+          SET status = 'SUCCESS', paid_at = NOW(), updated_at = NOW()
+          WHERE id = ${metadata.parentSubscriptionId} AND provider_ref = ${reference}
+        `
+      } else if (verification.status === 'REFUSED') {
+        await tenantDb.$executeRaw`
+          UPDATE parent_subscriptions
+          SET status = 'FAILED', updated_at = NOW()
+          WHERE id = ${metadata.parentSubscriptionId} AND provider_ref = ${reference}
+        `
+      }
+      console.info(`[GeniusPay webhook] Abonnement parent ${metadata.parentSubscriptionId} → ${verification.status}`)
       return NextResponse.json({ received: true })
     }
 

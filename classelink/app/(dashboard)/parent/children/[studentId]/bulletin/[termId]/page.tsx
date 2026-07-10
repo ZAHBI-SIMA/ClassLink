@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getBulletinData } from '@/actions/bulletin'
 import { PrintButton } from './print-button'
+import { ParentPaywall } from '@/components/ui/parent-paywall'
 
 interface Props {
   params: Promise<{ studentId: string; termId: string }>
@@ -85,6 +86,7 @@ export default async function ParentBulletinDetailPage({ params }: Props) {
         </div>
       </div>
 
+      <ParentPaywall featureName="Le bulletin de notes">
       {/* ══════════════════ BULLETIN (zone imprimable) ══════════════════ */}
       <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-3xl mx-auto
                       print:border-0 print:rounded-none print:p-0 print:max-w-none print:mx-0">
@@ -258,6 +260,7 @@ export default async function ParentBulletinDetailPage({ params }: Props) {
           Bulletin généré par MyClassLink · {new Date().toLocaleDateString('fr-FR')}
         </div>
       </div>
+      </ParentPaywall>
 
       {/* Styles d'impression */}
       <style>{`

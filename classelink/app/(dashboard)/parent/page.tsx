@@ -1,11 +1,14 @@
-import { getParentChildren } from '@/actions/parent'
+import { getParentChildren, getParentSubscriptionStatus } from '@/actions/parent'
 import { getAnnouncements } from '@/actions/announcements'
+import { AnnouncementItem } from '@/components/ui/announcement-item'
+import { PaySubscriptionButton } from '@/components/ui/pay-subscription-button'
 import Link from 'next/link'
 
 export default async function ParentDashboardPage() {
-  const [children, announcements] = await Promise.all([
+  const [children, announcements, subscription] = await Promise.all([
     getParentChildren(),
     getAnnouncements(),
+    getParentSubscriptionStatus(),
   ])
 
   return (
@@ -18,6 +21,27 @@ export default async function ParentDashboardPage() {
             : `Vous suivez ${children.length} élève${children.length > 1 ? 's' : ''}.`}
         </p>
       </div>
+
+      {subscription.success && subscription.data && !subscription.data.paid && subscription.data.childrenCount > 0 && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Abonnement MyClassLink non réglé</p>
+              <p className="text-xs text-gray-500">
+                {subscription.data.childrenCount} enfant{subscription.data.childrenCount > 1 ? 's' : ''} × 2 000 FCFA ={' '}
+                {subscription.data.amountDue.toLocaleString('fr-FR')} FCFA/an — certaines fonctionnalités sont verrouillées.
+              </p>
+            </div>
+          </div>
+          <PaySubscriptionButton label="Régulariser" />
+        </div>
+      )}
 
       {children.length === 0 ? (
         <div className="bg-white rounded-xl border border-dashed border-gray-300 py-20 text-center">
@@ -71,24 +95,7 @@ export default async function ParentDashboardPage() {
           </div>
           <div className="divide-y divide-gray-50">
             {announcements.slice(0, 3).map((a: any) => (
-              <div key={a.id} className="px-5 py-4">
-                <div className="flex items-start gap-2">
-                  {a.is_pinned && (
-                    <span className="mt-0.5 inline-flex text-amber-500 flex-shrink-0">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                      </svg>
-                    </span>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{a.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{a.content}</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(a.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <AnnouncementItem key={a.id} title={a.title} content={a.content} createdAt={a.created_at} isPinned={a.is_pinned} />
             ))}
           </div>
         </div>

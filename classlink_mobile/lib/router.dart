@@ -14,6 +14,8 @@ import 'features/bulletins/bulletins_screen.dart';
 import 'features/bulletins/bulletin_pdf_screen.dart';
 import 'features/parent/screens/children_screen.dart';
 import 'features/parent/screens/child_detail_screen.dart';
+import 'features/parent/screens/id_card_screen.dart';
+import 'features/trips/trips_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -88,6 +90,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           studentId: state.pathParameters['studentId'],
         ),
       ),
+      GoRoute(
+        path: '/parent/child/:studentId/id-card',
+        builder: (context, state) => IdCardScreen(
+          studentId: state.pathParameters['studentId']!,
+        ),
+      ),
+      GoRoute(path: '/trips', builder: (context, state) => const TripsScreen()),
     ],
   );
 });

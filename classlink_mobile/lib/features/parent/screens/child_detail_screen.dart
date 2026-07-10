@@ -40,6 +40,14 @@ class ChildDetailScreen extends ConsumerWidget {
             icon: Icons.receipt_long_rounded, label: 'Paiements', color: const Color(0xFF0891B2),
             onTap: () => context.push('/parent/child/$studentId/payments'),
           ),
+          _ActionTile(
+            icon: Icons.qr_code_2_rounded, label: 'Carte d\'élève', color: AppTheme.primary,
+            onTap: () => context.push('/parent/child/$studentId/id-card'),
+          ),
+          _ActionTile(
+            icon: Icons.hiking_rounded, label: 'Sorties scolaires', color: const Color(0xFFEA580C),
+            onTap: () => context.push('/trips'),
+          ),
 
           const SizedBox(height: 20),
           const Text('Résumé des absences', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textMain)),
