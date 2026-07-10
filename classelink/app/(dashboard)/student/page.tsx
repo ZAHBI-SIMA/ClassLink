@@ -1,5 +1,6 @@
 import { getStudentProfile, getStudentTerms, getStudentAttendanceSummary, getStudentPayments } from '@/actions/student'
 import { getAnnouncements } from '@/actions/announcements'
+import { AnnouncementItem } from '@/components/ui/announcement-item'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -155,24 +156,7 @@ export default async function StudentDashboardPage() {
           </div>
           <div className="divide-y divide-gray-50">
             {announcements.slice(0, 3).map((a: any) => (
-              <div key={a.id} className="px-5 py-4">
-                <div className="flex items-start gap-2">
-                  {a.is_pinned && (
-                    <span className="mt-0.5 inline-flex text-amber-500 flex-shrink-0">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                      </svg>
-                    </span>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{a.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{a.content}</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(a.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <AnnouncementItem key={a.id} title={a.title} content={a.content} createdAt={a.created_at} isPinned={a.is_pinned} />
             ))}
           </div>
         </div>

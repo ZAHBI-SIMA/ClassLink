@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { requireRole } from '@/lib/auth/rbac'
+import { notifyParentsOfStudent } from '@/lib/notifications/create'
 import type { ActionResult } from '@/types'
 
 function toDate(s: string | null | undefined): Date | null {
@@ -285,6 +286,7 @@ export async function saveAttendance(
 
   const studentIds = formData.getAll('student_id') as string[]
   try {
+    const newlyAbsent: string[] = []
     for (const sid of studentIds) {
       const status      = (formData.get(`status_${sid}`)      as string) || 'PRESENT'
       const justified   = formData.get(`justified_${sid}`)    === '1'
@@ -300,8 +302,26 @@ export async function saveAttendance(
         VALUES
           (${sid}, ${termId}, ${toDate(date)}, ${status}, ${justified}, ${justification}, ${session.user.id})
       `
+      if (status === 'ABSENT' && !justified) newlyAbsent.push(sid)
     }
     revalidatePath('/teacher/attendance')
+
+    // Notifie les parents des élèves nouvellement marqués absents (best-effort).
+    if (newlyAbsent.length > 0) {
+      const students: any[] = await db.$queryRaw`
+        SELECT s.id, u.first_name, u.last_name
+        FROM students s JOIN users u ON u.id = s.user_id
+        WHERE s.id = ANY(${newlyAbsent})
+      `
+      const dateLabel = new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+      await Promise.all(students.map(s => notifyParentsOfStudent(db, s.id, {
+        type: 'ABSENCE_RECORDED',
+        title: 'Absence enregistrée',
+        body: `${s.first_name} ${s.last_name} a été marqué(e) absent(e) le ${dateLabel}.`,
+        href: '/parent',
+      })))
+    }
+
     return { success: true, data: undefined }
   } catch (e: any) {
     return { success: false, error: e.message }
