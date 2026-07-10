@@ -9,7 +9,7 @@
  */
 
 const OPENROUTER_API = 'https://openrouter.ai/api/v1/chat/completions'
-const DEFAULT_MODEL = 'anthropic/claude-3.5-haiku'
+const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash'
 
 export class AiNotConfiguredError extends Error {
   constructor() {
