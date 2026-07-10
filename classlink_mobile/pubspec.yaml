@@ -43,6 +43,12 @@ dependencies:
   # Ouvrir des URLs (paiement Mobile Money)
   url_launcher: ^6.3.1
 
+  # Carte d'élève numérique (QR code)
+  qr_flutter: ^4.1.0
+
+  # Signature numérique (autorisations de sortie)
+  signature: ^5.5.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

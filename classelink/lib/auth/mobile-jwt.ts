@@ -1,8 +1,10 @@
 import { SignJWT, jwtVerify } from 'jose'
 
 function getSecret(): Uint8Array {
-  const s = process.env.MOBILE_JWT_SECRET ?? process.env.NEXTAUTH_SECRET
-  if (!s) throw new Error('MOBILE_JWT_SECRET ou NEXTAUTH_SECRET doit être défini.')
+  // AUTH_SECRET = nom Auth.js v5 (ce projet) ; NEXTAUTH_SECRET conservé pour
+  // compatibilité avec d'anciennes configurations v4.
+  const s = process.env.MOBILE_JWT_SECRET ?? process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
+  if (!s) throw new Error('MOBILE_JWT_SECRET, AUTH_SECRET ou NEXTAUTH_SECRET doit être défini.')
   return new TextEncoder().encode(s)
 }
 

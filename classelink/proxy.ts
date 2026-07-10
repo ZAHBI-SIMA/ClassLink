@@ -38,6 +38,11 @@ const PUBLIC_PATHS = [
   '/two-factor',
   '/api/auth',
   '/api/webhooks',
+  // Routes de l'app mobile : authentification par JWT Bearer propre à
+  // `withMobileAuth`, indépendante de la session web NextAuth — sans cette
+  // exclusion, TOUTE requête mobile (y compris /auth/login) était redirigée
+  // vers /login puisqu'aucune session web n'existe côté mobile.
+  '/api/mobile',
   '/_next',
   '/favicon.ico',
   '/icons',
