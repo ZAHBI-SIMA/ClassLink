@@ -5,6 +5,7 @@ import {
   deleteLesson,
 } from '@/actions/assignments'
 import { CreateLessonForm } from './create-form'
+import { LessonsSummary } from './lessons-summary'
 import Link from 'next/link'
 
 interface Props {
@@ -129,6 +130,8 @@ export default async function TeacherLessonsPage({ searchParams }: Props) {
               </div>
             </div>
           </div>
+
+          <LessonsSummary lessons={lessons as any} />
 
           {/* Liste des entrees */}
           {lessons.length === 0 ? (

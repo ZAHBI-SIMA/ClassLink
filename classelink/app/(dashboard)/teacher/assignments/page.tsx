@@ -278,6 +278,9 @@ export default async function TeacherAssignmentsPage({ searchParams }: Props) {
                                 assignmentId={assignmentId}
                                 currentScore={s.score ? parseFloat(s.score) : null}
                                 maxScore={selectedAssignment.max_score}
+                                assignmentTitle={selectedAssignment.title}
+                                assignmentDescription={selectedAssignment.description}
+                                submissionText={filesText}
                               />
                             ) : (
                               <span className="text-xs text-gray-300">Pas de rendu</span>

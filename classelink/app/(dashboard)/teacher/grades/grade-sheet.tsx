@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { saveGrade, deleteGrade } from '@/actions/teacher'
+import { suggestGradeComment } from '@/actions/ai'
 
 const GRADE_TYPES = [
   { value: 'DEVOIR',        label: 'Devoir' },
@@ -30,10 +31,11 @@ interface Student {
 interface Props {
   students: Student[]
   subjectId: string
+  subjectName: string
   termId: string
 }
 
-export function GradeSheet({ students: initial, subjectId, termId }: Props) {
+export function GradeSheet({ students: initial, subjectId, subjectName, termId }: Props) {
   const [students, setStudents] = useState(initial)
   const [gradeType, setGradeType] = useState('DEVOIR')
   const [coefficient, setCoefficient] = useState('1')
@@ -42,11 +44,46 @@ export function GradeSheet({ students: initial, subjectId, termId }: Props) {
   const [inputs, setInputs] = useState<Record<string, string>>(() =>
     Object.fromEntries(initial.map(s => [s.student_id, '']))
   )
+  const [comments, setComments] = useState<Record<string, string>>(() =>
+    Object.fromEntries(initial.map(s => [s.student_id, '']))
+  )
+  const [aiLoadingFor, setAiLoadingFor] = useState<string | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
   function handleInput(studentId: string, value: string) {
     setInputs(prev => ({ ...prev, [studentId]: value }))
+  }
+
+  function handleComment(studentId: string, value: string) {
+    setComments(prev => ({ ...prev, [studentId]: value }))
+  }
+
+  async function handleSuggestComment(student: Student) {
+    const value = parseFloat(inputs[student.student_id])
+    if (isNaN(value)) {
+      setAiError('Saisissez d\'abord une note pour obtenir une suggestion.')
+      return
+    }
+    setAiError(null)
+    setAiLoadingFor(student.student_id)
+    try {
+      const result = await suggestGradeComment({
+        studentFirstName: student.first_name,
+        subjectName: subjectName || 'cette matière',
+        value,
+        maxValue: 20,
+        classAverage: student.average,
+      })
+      if (result.success && result.data) {
+        setComments(prev => ({ ...prev, [student.student_id]: result.data as string }))
+      } else if (!result.success) {
+        setAiError(result.error ?? 'Erreur de l\'assistant IA.')
+      }
+    } finally {
+      setAiLoadingFor(null)
+    }
   }
 
   async function handleSaveAll() {
@@ -67,6 +104,9 @@ export function GradeSheet({ students: initial, subjectId, termId }: Props) {
         fd.set('type', gradeType)
         fd.set('value', inputs[student.student_id])
         fd.set('coefficient', coefficient)
+        if (comments[student.student_id]?.trim()) {
+          fd.set('comment', comments[student.student_id].trim())
+        }
 
         const result = await saveGrade(null, fd)
         if (!result.success) {
@@ -76,6 +116,7 @@ export function GradeSheet({ students: initial, subjectId, termId }: Props) {
       }
       setSuccess(true)
       setInputs(Object.fromEntries(students.map(s => [s.student_id, ''])))
+      setComments(Object.fromEntries(students.map(s => [s.student_id, ''])))
       setTimeout(() => setSuccess(false), 3000)
     })
   }
@@ -133,6 +174,9 @@ export function GradeSheet({ students: initial, subjectId, termId }: Props) {
             Notes enregistrées avec succès.
           </p>
         )}
+        {aiError && (
+          <p className="mt-3 text-sm text-orange-700 bg-orange-50 rounded-lg px-3 py-2">{aiError}</p>
+        )}
       </div>
 
       {/* Tableau */}
@@ -145,6 +189,9 @@ export function GradeSheet({ students: initial, subjectId, termId }: Props) {
               </th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">
                 Nouvelle note /20
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-64">
+                Appréciation
               </th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Moyenne matière
@@ -183,6 +230,38 @@ export function GradeSheet({ students: initial, subjectId, termId }: Props) {
                     className="w-20 px-2 py-1.5 rounded-lg border border-gray-300 text-center
                                text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-start gap-1.5">
+                    <textarea
+                      rows={2}
+                      placeholder="Appréciation (optionnel)"
+                      value={comments[student.student_id] ?? ''}
+                      onChange={e => handleComment(student.student_id, e.target.value)}
+                      className="flex-1 px-2 py-1.5 rounded-lg border border-gray-300 text-xs resize-none
+                                 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      title="Suggérer avec l'IA"
+                      onClick={() => handleSuggestComment(student)}
+                      disabled={aiLoadingFor === student.student_id}
+                      className="flex-shrink-0 h-7 w-7 flex items-center justify-center rounded-lg
+                                 bg-violet-50 text-violet-600 hover:bg-violet-100 transition disabled:opacity-40"
+                    >
+                      {aiLoadingFor === student.student_id ? (
+                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-center">
                   {student.average !== null ? (

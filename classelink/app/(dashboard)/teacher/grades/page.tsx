@@ -130,6 +130,7 @@ export default async function TeacherGradesPage({ searchParams }: Props) {
         <GradeSheet
           students={students as any}
           subjectId={selectedSubjectId}
+          subjectName={selectedAssignment?.subject_name ?? ''}
           termId={selectedTermId}
         />
       )}
