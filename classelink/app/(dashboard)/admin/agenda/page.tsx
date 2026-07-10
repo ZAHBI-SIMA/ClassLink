@@ -1,7 +1,9 @@
-import { getAgendaEvents, createAgendaEvent, deleteAgendaEvent } from '@/actions/agenda'
+import { getAgendaEvents, deleteAgendaEvent } from '@/actions/agenda'
+import { getSubjects } from '@/actions/admin'
 import { requireRole } from '@/lib/auth/rbac'
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { PageHeader } from '@/components/ui/page-header'
+import { AgendaForm } from './agenda-form'
 
 export const metadata = { title: 'Agenda scolaire' }
 
@@ -38,9 +40,10 @@ export default async function AgendaPage({ searchParams }: Props) {
   const { month: rawMonth } = await searchParams
   const month = rawMonth ?? currentMonth()
 
-  const [events, classes] = await Promise.all([
+  const [events, classes, subjects] = await Promise.all([
     getAgendaEvents(month),
     getClasses(),
+    getSubjects(),
   ])
 
   const monthLabel = new Date(month + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
@@ -64,71 +67,7 @@ export default async function AgendaPage({ searchParams }: Props) {
         {/* Form */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">Nouvel événement</h3>
-          <form action={async (formData: FormData) => {
-            'use server'
-            const title = formData.get('title') as string
-            const description = formData.get('description') as string
-            const eventType = formData.get('eventType') as string
-            const startDate = formData.get('startDate') as string
-            const endDate = formData.get('endDate') as string
-            const startTime = formData.get('startTime') as string
-            const endTime = formData.get('endTime') as string
-            const classId = formData.get('classId') as string
-            const allClasses = formData.get('allClasses') === 'true'
-            await createAgendaEvent(title, description, eventType, startDate, endDate, startTime, endTime, classId, allClasses)
-          }} className="space-y-3">
-            <input name="title" required placeholder="Titre"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <textarea name="description" rows={2} placeholder="Description (optionnel)"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-            <select name="eventType" required
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="GENERAL">Général</option>
-              <option value="EXAM">Examen</option>
-              <option value="HOLIDAY">Vacances</option>
-              <option value="MEETING">Réunion</option>
-              <option value="ACTIVITY">Activité</option>
-              <option value="DEADLINE">Échéance</option>
-            </select>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs text-gray-500">Début</label>
-                <input name="startDate" type="date" required
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Fin (opt.)</label>
-                <input name="endDate" type="date"
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Heure début</label>
-                <input name="startTime" type="time"
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Heure fin</label>
-                <input name="endTime" type="time"
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-            </div>
-            <select name="classId"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">Toutes les classes</option>
-              {classes.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input type="checkbox" name="allClasses" value="true"
-                className="rounded border-gray-300 text-blue-600" />
-              Visible par toutes les classes
-            </label>
-            <button type="submit"
-              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
-              Créer l&apos;événement
-            </button>
-          </form>
+          <AgendaForm classes={classes} subjects={subjects as any} />
         </div>
 
         {/* Calendar view */}
@@ -179,6 +118,9 @@ export default async function AgendaPage({ searchParams }: Props) {
                                 )}
                                 {ev.class_name && <span>· {ev.class_name}</span>}
                                 {ev.all_classes && <span>· Toutes les classes</span>}
+                                {ev.subject_name && <span>· {ev.subject_name}</span>}
+                                {ev.room && <span>· {ev.room}</span>}
+                                {ev.exam_id && <span>· Coeff. {parseFloat(ev.coefficient)} · /{parseFloat(ev.max_value)}</span>}
                               </div>
                               {ev.description && (
                                 <p className="text-xs text-gray-500 mt-1">{ev.description}</p>
