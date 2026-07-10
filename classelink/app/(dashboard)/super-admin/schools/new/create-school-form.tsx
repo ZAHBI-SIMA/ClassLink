@@ -7,7 +7,7 @@ import { createSchool } from '@/actions/super-admin'
 import type { ActionResult } from '@/types'
 
 interface Props {
-  plans: { id: string; name: string; priceMonthly: number; maxStudents: number }[]
+  plans: { id: string; name: string; priceYearly: number; maxStudents: number }[]
 }
 
 export function CreateSchoolForm({ plans }: Props) {
@@ -76,7 +76,7 @@ export function CreateSchoolForm({ plans }: Props) {
             Plan tarifaire <span className="text-red-500">*</span>
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {plans.map(plan => (
+            {plans.map((plan, i) => (
               <label key={plan.id}
                 className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer
                            hover:border-blue-300 hover:bg-blue-50 transition has-[:checked]:border-blue-500
@@ -86,13 +86,13 @@ export function CreateSchoolForm({ plans }: Props) {
                   name="planId"
                   value={plan.id}
                   required
-                  defaultChecked={plan.priceMonthly === 0}
+                  defaultChecked={i === 0}
                   className="mt-0.5 accent-blue-600"
                 />
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{plan.name}</p>
                   <p className="text-xs text-gray-500">
-                    {plan.priceMonthly === 0 ? 'Gratuit' : `${plan.priceMonthly.toLocaleString()} FCFA/mois`}
+                    {plan.priceYearly.toLocaleString()} FCFA/an
                   </p>
                   <p className="text-xs text-gray-400">
                     {plan.maxStudents === -1 ? 'Élèves illimités' : `Max ${plan.maxStudents} élèves`}

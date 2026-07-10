@@ -105,16 +105,16 @@ export async function registerSchool(
       INSERT INTO school_settings (school_name, city) VALUES (${schoolName}, ${city || null})
     `
 
-    // 4. Abonnement (en attente de paiement)
+    // 4. Abonnement (en attente de paiement) — forfait annuel
     const now = new Date()
     await db.subscription.create({
       data: {
         schoolId: school.id,
         planId: plan.id,
-        billing: 'MONTHLY',
+        billing: 'YEARLY',
         status: 'TRIALING',
         currentPeriodStart: now,
-        currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+        currentPeriodEnd: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000),
       },
     })
 
@@ -142,13 +142,13 @@ export async function initiateSubscriptionPayment(
       return { success: true, data: { redirect: '/login' } }
     }
 
-    const basePrice = school.plan.priceMonthly as number
+    const basePrice = school.plan.priceYearly as number
     const discount  = (school.plan as any).discountPercent ?? 0
     const amount    = discount > 0
       ? Math.round(basePrice * (1 - discount / 100))
       : basePrice
 
-    // Forfait gratuit → activation immédiate, sans paiement
+    // Forfait gratuit (le cas échéant) → activation immédiate, sans paiement
     if (amount <= 0) {
       await activateSchool(school.id, school.subscription?.id ?? null)
       return { success: true, data: { redirect: `/register/success?school=${school.id}` } }
@@ -200,7 +200,7 @@ async function activateSchool(schoolId: string, subscriptionId: string | null): 
       data: {
         status: 'ACTIVE',
         currentPeriodStart: now,
-        currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+        currentPeriodEnd: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000),
       },
     })
   }
@@ -220,8 +220,8 @@ export async function activateSchoolIfPaid(
   if (!school) return { activated: false, status: 'NOT_FOUND' }
   if (school.status === 'ACTIVE') return { activated: true, status: 'ACTIVE' }
 
-  // Forfait gratuit
-  if ((school.plan.priceMonthly as number) <= 0) {
+  // Forfait gratuit (le cas échéant)
+  if ((school.plan.priceYearly as number) <= 0) {
     await activateSchool(school.id, school.subscription?.id ?? null)
     return { activated: true, status: 'ACTIVE' }
   }
@@ -286,7 +286,7 @@ export async function getRegistrationInfo(schoolId: string): Promise<{
     include: { plan: true },
   })
   if (!school) return null
-  const basePrice = school.plan.priceMonthly
+  const basePrice = school.plan.priceYearly
   const discount  = (school.plan as any).discountPercent ?? 0
   return {
     schoolName: school.name,

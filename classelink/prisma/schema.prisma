@@ -13,9 +13,9 @@ generator client {
 // ─── Plans tarifaires ────────────────────────────────────────────────────────
 model Plan {
   id           String   @id @default(cuid())
-  name         String   // "Gratuit", "Starter", "Pro", "Entreprise"
+  name         String   // "École primaire", "Collège ou lycée", "Groupe scolaire"
   slug         String   @unique
-  priceMonthly Int      // en FCFA (0 = gratuit)
+  priceMonthly Int      // en FCFA — non utilisé (forfaits annuels uniquement), conservé pour compat schéma
   priceYearly  Int
   maxStudents  Int      // -1 = illimité
   maxStorageMb Int      // en Mo

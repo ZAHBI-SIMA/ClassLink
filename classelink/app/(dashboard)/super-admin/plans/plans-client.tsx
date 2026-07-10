@@ -251,16 +251,23 @@ export function PlansClient({ plans }: { plans: Plan[] }) {
                             −{plan.discountPercent}%
                           </span>
                         </>
-                      ) : (
+                      ) : plan.priceMonthly > 0 ? (
                         <>
                           <span className="text-2xl font-bold text-gray-900">
                             {formatCurrency(plan.priceMonthly)}
                           </span>
                           <span className="text-xs text-gray-400">/mois</span>
                         </>
+                      ) : (
+                        <>
+                          <span className="text-2xl font-bold text-gray-900">
+                            {formatCurrency(plan.priceYearly)}
+                          </span>
+                          <span className="text-xs text-gray-400">/an</span>
+                        </>
                       )}
                     </div>
-                    {plan.priceYearly > 0 && (
+                    {plan.priceYearly > 0 && plan.priceMonthly > 0 && (
                       <p className="text-xs text-gray-500 mt-0.5">
                         {formatCurrency(plan.priceYearly)}/an
                         {savings > 0 && (

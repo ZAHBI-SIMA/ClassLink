@@ -125,8 +125,6 @@ const STEPS = [
   },
 ]
 
-// Réduction appliquée en facturation annuelle
-const ANNUAL_DISCOUNT = 0.17
 
 const STATS = [
   { value: 6,  suffix: '',   label: 'Espaces dédiés par rôle' },
@@ -159,60 +157,37 @@ const TESTIMONIALS = [
   },
 ]
 
+// Forfaits annuels, forfaitaires selon le type d'établissement — accès complet à la plateforme.
+// Les parents règlent en plus 2 000 FCFA/an/enfant pour débloquer les fonctionnalités qui les concernent.
 const PLANS = [
   {
-    slug: 'gratuit',
-    name: 'Gratuit',
-    monthly: 0,
-    currency: '',
-    desc: 'Pour découvrir la plateforme.',
-    features: ['Jusqu’à 50 élèves', 'Gestion des élèves', 'Bulletins basiques', 'Messagerie'],
-    cta: 'Commencer',
+    slug: 'primaire',
+    name: 'École primaire',
+    yearly: 30000,
+    desc: 'Pour les écoles primaires.',
+    features: ['Élèves illimités', 'Accès complet à la plateforme', 'Bulletins, notes, présences', 'Messagerie & paiements en ligne'],
+    cta: 'Choisir École primaire',
     highlight: false,
   },
   {
-    slug: 'starter',
-    name: 'Starter',
-    monthly: 15000,
-    currency: 'FCFA',
-    desc: 'Pour les petits établissements.',
-    features: ['Jusqu’à 300 élèves', 'Tout le plan Gratuit', 'Paiements en ligne', 'Emplois du temps'],
-    cta: 'Choisir Starter',
-    highlight: false,
-  },
-  {
-    slug: 'pro',
-    name: 'Pro',
-    monthly: 40000,
-    currency: 'FCFA',
-    desc: 'Le plus populaire.',
-    features: ['Jusqu’à 1000 élèves', 'Tout le plan Starter', 'Multi-campus', 'Rapports avancés'],
-    cta: 'Choisir Pro',
+    slug: 'college-lycee',
+    name: 'Collège ou lycée',
+    yearly: 50000,
+    desc: 'Le plus choisi par les établissements secondaires.',
+    features: ['Élèves illimités', 'Accès complet à la plateforme', 'Emplois du temps, conseils de classe', 'Messagerie & paiements en ligne'],
+    cta: 'Choisir Collège / Lycée',
     highlight: true,
   },
   {
-    slug: 'entreprise',
-    name: 'Entreprise',
-    monthly: 100000,
-    currency: 'FCFA',
-    desc: 'Pour les grands groupes scolaires.',
-    features: ['Élèves illimités', 'Tout le plan Pro', 'Support prioritaire', 'Accompagnement dédié'],
-    cta: 'Choisir Entreprise',
+    slug: 'groupe-scolaire',
+    name: 'Groupe scolaire',
+    yearly: 70000,
+    desc: 'Primaire + Collège/Lycée réunis dans un seul établissement.',
+    features: ['Élèves illimités', 'Primaire et Secondaire réunis', 'Accès complet à la plateforme', 'Support prioritaire'],
+    cta: 'Choisir Groupe scolaire',
     highlight: false,
   },
 ]
-
-// Calcule le prix affiché (mensuel, ou mensuel × 12 avec réduction) + l'unité de période
-function getDisplayPrice(monthly: number, currency: string, billing: 'mensuel' | 'annuel') {
-  if (monthly === 0) {
-    return { price: '0', period: currency ? `${currency}/mois` : '/mois' }
-  }
-  if (billing === 'annuel') {
-    const annual = Math.round(monthly * 12 * (1 - ANNUAL_DISCOUNT))
-    return { price: annual.toLocaleString('fr-FR'), period: currency ? `${currency}/an` : '/an' }
-  }
-  return { price: monthly.toLocaleString('fr-FR'), period: currency ? `${currency}/mois` : '/mois' }
-}
 
 const FAQS = [
   {
@@ -233,7 +208,7 @@ const FAQS = [
   },
   {
     q: 'Puis-je changer de forfait en cours d’année ?',
-    a: 'Oui, à tout moment. Vous pouvez commencer avec le plan Gratuit et évoluer vers un forfait supérieur quand votre effectif grandit, sans perdre aucune donnée.',
+    a: 'Oui. Si votre établissement évolue (par exemple l’ouverture d’un collège ou lycée en plus du primaire), vous pouvez passer au forfait Groupe scolaire à tout moment, sans perdre aucune donnée.',
   },
   {
     q: 'Et si mes enseignants ne sont pas à l’aise avec l’informatique ?',
@@ -524,7 +499,6 @@ function RolePreview({ roleKey }: { roleKey: string }) {
 
 export function Landing({ isAuthenticated, dashboardHref }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [billing, setBilling] = useState<'mensuel' | 'annuel'>('mensuel')
   const [activeSection, setActiveSection] = useState('#accueil')
   const [scrollProgress, setScrollProgress] = useState(0)
   const [activeRole, setActiveRole] = useState('admin')
@@ -709,7 +683,7 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
           </div>
 
           <p className="mt-5 text-xs text-gray-400">
-            Plan gratuit disponible · Aucune carte bancaire requise · Prêt en 3 minutes
+            Forfait annuel unique dès 30 000 FCFA/an · Prêt en 3 minutes
           </p>
 
           <HeroMockup />
@@ -951,43 +925,12 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
               Des forfaits pour chaque établissement
             </h2>
             <p className="mt-4 text-gray-600">
-              Commencez gratuitement, évoluez quand vous le souhaitez. Sans engagement.
+              Un forfait annuel unique selon votre établissement. Sans engagement, sans surprise.
             </p>
           </div>
 
-          {/* Sélecteur de facturation mensuel / annuel */}
-          <div className="reveal mt-10 flex items-center justify-center gap-3">
-            <div className="inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setBilling('mensuel')}
-                aria-pressed={billing === 'mensuel'}
-                className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
-                  billing === 'mensuel' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}>
-                Mensuel
-              </button>
-              <button
-                type="button"
-                onClick={() => setBilling('annuel')}
-                aria-pressed={billing === 'annuel'}
-                className={`flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold transition ${
-                  billing === 'annuel' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}>
-                Annuel
-                <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                  billing === 'annuel' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-600'
-                }`}>
-                  -17%
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {PLANS.map((p, i) => {
-              const { price, period } = getDisplayPrice(p.monthly, p.currency, billing)
-              return (
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto">
+            {PLANS.map((p, i) => (
               <div key={p.name}
                 style={{ transitionDelay: `${i * 90}ms` }}
                 className={`reveal relative flex flex-col rounded-2xl border bg-white p-6 text-center shadow-sm transition hover:-translate-y-1 hover:shadow-lg ${
@@ -1001,14 +944,10 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
                 <h3 className="text-base font-semibold text-gray-900">{p.name}</h3>
                 <p className="mt-1 text-xs text-gray-500">{p.desc}</p>
                 <div className="mt-5 flex items-baseline justify-center gap-1">
-                  <span className="text-3xl font-extrabold text-gray-900">{price}</span>
-                  <span className="text-xs font-medium text-gray-500">{period}</span>
+                  <span className="text-3xl font-extrabold text-gray-900">{p.yearly.toLocaleString('fr-FR')}</span>
+                  <span className="text-xs font-medium text-gray-500">FCFA/an</span>
                 </div>
-                {billing === 'annuel' && p.monthly > 0 && (
-                  <p className="mt-1 text-xs font-medium text-emerald-600">
-                    soit 2 mois offerts par an
-                  </p>
-                )}
+                <p className="mt-1 text-xs font-medium text-gray-400">forfait, sans limite d’élèves</p>
                 <ul className="mt-6 flex-1 space-y-3">
                   {p.features.map(f => (
                     <li key={f} className="flex items-start justify-center gap-2 text-sm text-gray-600">
@@ -1017,7 +956,7 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
                     </li>
                   ))}
                 </ul>
-                <Link href={isAuthenticated ? dashboardHref : `/register?plan=${p.slug}&billing=${billing}`}
+                <Link href={isAuthenticated ? dashboardHref : `/register?plan=${p.slug}`}
                   className={`mt-7 rounded-xl px-4 py-2.5 text-center text-sm font-semibold transition ${
                     p.highlight
                       ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20 hover:bg-blue-700'
@@ -1026,9 +965,11 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
                   {p.cta}
                 </Link>
               </div>
-              )
-            })}
+            ))}
           </div>
+          <p className="reveal mt-8 text-center text-xs text-gray-400">
+            Les parents règlent séparément 2 000 FCFA/an/enfant pour accéder aux fonctionnalités qui les concernent (bulletins, autorisations…).
+          </p>
         </div>
       </section>
 
@@ -1111,7 +1052,7 @@ export function Landing({ isAuthenticated, dashboardHref }: Props) {
             </div>
 
             <p className="mt-6 text-xs text-blue-200">
-              Plan gratuit à vie · Sans engagement · Support en français
+              Forfait annuel forfaitaire · Sans engagement · Support en français
             </p>
           </div>
         </div>

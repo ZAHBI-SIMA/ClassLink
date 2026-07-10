@@ -204,12 +204,11 @@ async function seedData() {
   await run(`DELETE FROM super_admin_users`)
   await run(`DELETE FROM plans`)
 
-  // Plans
+  // Plans — forfaits annuels par type d'établissement (accès complet, sans palier de fonctionnalités)
   const plans = [
-    ['plan_gratuit','Gratuit','gratuit',0,0,50,500,JSON.stringify(['Gestion élèves','Bulletins basiques','Messagerie'])],
-    ['plan_starter','Starter','starter',15000,150000,300,5000,JSON.stringify(['Tout Gratuit','Paiements en ligne','Emplois du temps'])],
-    ['plan_pro','Pro','pro',40000,400000,1000,20000,JSON.stringify(['Tout Starter','Multi-campus','Rapports avancés'])],
-    ['plan_entreprise','Entreprise','entreprise',100000,1000000,-1,-1,JSON.stringify(['Tout Pro','Élèves illimités'])],
+    ['plan_primaire','École primaire','primaire',0,30000,-1,20000,JSON.stringify(['Accès complet à la plateforme','Élèves illimités','Support standard'])],
+    ['plan_college_lycee','Collège ou lycée','college-lycee',0,50000,-1,20000,JSON.stringify(['Accès complet à la plateforme','Élèves illimités','Support standard'])],
+    ['plan_groupe_scolaire','Groupe scolaire','groupe-scolaire',0,70000,-1,20000,JSON.stringify(['Accès complet à la plateforme','Primaire + Collège/Lycée réunis','Élèves illimités','Support prioritaire'])],
   ]
   for (const [id,name,slug,pm,py,ms,mb,feat] of plans) {
     await run(`INSERT INTO plans (id,name,slug,"priceMonthly","priceYearly","maxStudents","maxStorageMb",features,"updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) ON CONFLICT (slug) DO NOTHING`,
@@ -224,9 +223,9 @@ async function seedData() {
 
   // École démo
   await run(`INSERT INTO schools (id,name,slug,subdomain,"adminEmail",status,"planId","schemaName","trialEndsAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()+INTERVAL '365 days',NOW()) ON CONFLICT (slug) DO NOTHING`,
-    ['school_demo_id','Lycée Classique d\'Abidjan','lycee-classique-abidjan','demo','admin@lycee-classique.ci','ACTIVE','plan_pro','school_demo'])
+    ['school_demo_id','Lycée Classique d\'Abidjan','lycee-classique-abidjan','demo','admin@lycee-classique.ci','ACTIVE','plan_college_lycee','school_demo'])
   await run(`INSERT INTO subscriptions (id,"schoolId","planId",billing,status,"currentPeriodStart","currentPeriodEnd","updatedAt") VALUES ($1,$2,$3,$4,$5,NOW(),NOW()+INTERVAL '365 days',NOW()) ON CONFLICT ("schoolId") DO NOTHING`,
-    ['sub_demo_1','school_demo_id','plan_pro','YEARLY','ACTIVE'])
+    ['sub_demo_1','school_demo_id','plan_college_lycee','YEARLY','ACTIVE'])
   console.log('   ✅ École démo créée')
 
   // Données tenant

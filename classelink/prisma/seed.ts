@@ -11,60 +11,36 @@ async function main() {
   console.log('🌱 Démarrage du seed...')
 
   // ── Plans tarifaires ─────────────────────────────────────────────────────
+  // Forfaits annuels (facturation à l'établissement) : accès complet à la plateforme,
+  // sans palier de fonctionnalités ni limite d'effectif. Le prix dépend uniquement
+  // du type d'établissement. Les parents règlent en plus 2 000 FCFA/an/enfant (voir PARENT_FEE_PER_CHILD).
   const plans = [
     {
-      name: 'Gratuit',
-      slug: 'gratuit',
+      name: 'École primaire',
+      slug: 'primaire',
       priceMonthly: 0,
-      priceYearly: 0,
-      maxStudents: 50,
-      maxStorageMb: 500,
-      features: ['Gestion élèves', 'Bulletins basiques', 'Messagerie'],
-    },
-    {
-      name: 'Starter',
-      slug: 'starter',
-      priceMonthly: 15000,
-      priceYearly: 150000,
-      maxStudents: 300,
-      maxStorageMb: 5000,
-      features: [
-        'Tout Gratuit',
-        'Paiements en ligne',
-        'Emplois du temps',
-        'SMS notifications',
-      ],
-    },
-    {
-      name: 'Pro',
-      slug: 'pro',
-      priceMonthly: 40000,
-      priceYearly: 400000,
-      maxStudents: 1000,
-      maxStorageMb: 20000,
-      features: [
-        'Tout Starter',
-        'Multi-campus',
-        'Rapports avancés',
-        'API access',
-        'Support prioritaire',
-      ],
-    },
-    {
-      name: 'Entreprise',
-      slug: 'entreprise',
-      priceMonthly: 100000,
-      priceYearly: 1000000,
+      priceYearly: 30000,
       maxStudents: -1,
-      maxStorageMb: -1,
-      features: [
-        'Tout Pro',
-        'Élèves illimités',
-        'Stockage illimité',
-        'SLA garanti',
-        'Onboarding dédié',
-        'Formation incluse',
-      ],
+      maxStorageMb: 20000,
+      features: ['Accès complet à la plateforme', 'Élèves illimités', 'Support standard'],
+    },
+    {
+      name: 'Collège ou lycée',
+      slug: 'college-lycee',
+      priceMonthly: 0,
+      priceYearly: 50000,
+      maxStudents: -1,
+      maxStorageMb: 20000,
+      features: ['Accès complet à la plateforme', 'Élèves illimités', 'Support standard'],
+    },
+    {
+      name: 'Groupe scolaire',
+      slug: 'groupe-scolaire',
+      priceMonthly: 0,
+      priceYearly: 70000,
+      maxStudents: -1,
+      maxStorageMb: 20000,
+      features: ['Accès complet à la plateforme', 'Primaire + Collège/Lycée réunis', 'Élèves illimités', 'Support prioritaire'],
     },
   ]
 

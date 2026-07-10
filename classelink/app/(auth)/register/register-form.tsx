@@ -43,7 +43,7 @@ export function RegisterForm({ planSlug, planName, planPrice }: Props) {
           <p className="text-xs text-blue-600 font-medium">Forfait sélectionné</p>
           <p className="text-sm font-bold text-gray-900">
             {planName} —{' '}
-            {planPrice > 0 ? `${formatXof(planPrice)} FCFA/mois` : 'Gratuit'}
+            {planPrice > 0 ? `${formatXof(planPrice)} FCFA/an` : 'Gratuit'}
           </p>
         </div>
         <Link href="/#tarifs" className="text-xs font-medium text-blue-600 hover:underline">

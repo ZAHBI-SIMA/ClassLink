@@ -210,13 +210,13 @@ export async function createSchool(
       VALUES (${adminEmail}, ${passwordHash}, ${adminFirstName}, ${adminLastName}, 'ADMIN', TRUE)
     `
 
-    // 5. Créer l'abonnement initial (statut TRIALING — 30 jours d'essai)
+    // 5. Créer l'abonnement initial (statut TRIALING — 30 jours d'essai, forfait annuel)
     const now = new Date()
     await db.subscription.create({
       data: {
         schoolId:           school.id,
         planId,
-        billing:            'MONTHLY',
+        billing:            'YEARLY',
         status:             'TRIALING',
         currentPeriodStart: now,
         currentPeriodEnd:   new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
@@ -346,7 +346,7 @@ export async function deleteSchool(schoolId: string): Promise<ActionResult> {
 // ─── Plans tarifaires ─────────────────────────────────────────────────────────
 export async function getPlans() {
   await requireRole('SUPER_ADMIN')
-  return db.plan.findMany({ orderBy: { priceMonthly: 'asc' } })
+  return db.plan.findMany({ orderBy: { priceYearly: 'asc' } })
 }
 
 const planSchema = z.object({
@@ -493,10 +493,10 @@ export async function backfillMissingSubscriptions(): Promise<ActionResult<{ cre
       data: schools.map((s: any) => ({
         schoolId:           s.id,
         planId:             s.planId,
-        billing:            'MONTHLY',
+        billing:            'YEARLY',
         status:             s.status === 'ACTIVE' ? 'ACTIVE' : 'TRIALING',
         currentPeriodStart: s.createdAt,
-        currentPeriodEnd:   new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+        currentPeriodEnd:   new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000),
       })),
     })
 

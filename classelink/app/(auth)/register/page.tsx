@@ -14,10 +14,10 @@ export default async function RegisterPage({ searchParams }: Props) {
   const { plan: planSlug } = await searchParams
   const db = publicPrisma as any
 
-  const slug = planSlug ?? 'gratuit'
+  const slug = planSlug ?? 'primaire'
   const plan =
     (await db.plan.findUnique({ where: { slug } })) ??
-    (await db.plan.findUnique({ where: { slug: 'gratuit' } }))
+    (await db.plan.findUnique({ where: { slug: 'primaire' } }))
 
   if (!plan) {
     return (
@@ -32,7 +32,7 @@ export default async function RegisterPage({ searchParams }: Props) {
     <RegisterForm
       planSlug={plan.slug}
       planName={plan.name}
-      planPrice={plan.priceMonthly}
+      planPrice={plan.priceYearly}
     />
   )
 }
