@@ -7,6 +7,7 @@ import {
 import { getTenantPrisma } from '@/lib/db/tenant'
 import { requireRole } from '@/lib/auth/rbac'
 import { PageHeader } from '@/components/ui/page-header'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Bourses — MyClassLink' }
@@ -79,6 +80,21 @@ export default async function ScholarshipsPage() {
       <PageHeader
         title="Bourses & Aides"
         description="Gérer les bourses et aides financières accordées aux élèves"
+        action={
+          <ExportExcelButton
+            rows={scholarships.map((s: any) => ({
+              'Élève': `${s.student_last_name} ${s.student_first_name}`,
+              'Libellé': s.label,
+              'Type': s.type,
+              'Montant/Pourcentage': formatAmount(s.amount, s.percentage),
+              'Statut': STATUS_CFG[s.status]?.label ?? s.status,
+              'Année scolaire': s.academic_year_name,
+              'Motif': s.reason ?? '',
+            }))}
+            filename="bourses.xlsx"
+            sheetName="Bourses"
+          />
+        }
       />
 
       {/* Stats */}

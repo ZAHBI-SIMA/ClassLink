@@ -1,4 +1,5 @@
 import { getClasses, getTerms, getClassGradesOverview } from '@/actions/admin'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 import Link from 'next/link'
 
 interface Props {
@@ -111,6 +112,17 @@ export default async function AdminGradesPage({ searchParams }: Props) {
                 {overview.rows.filter(r => r.generalAverage === null).length} incomplets
               </span>
             </div>
+            <ExportExcelButton
+              rows={overview.rows.map((s: any) => ({
+                'N° élève': s.student_number,
+                'Nom': s.last_name,
+                'Prénom': s.first_name,
+                ...Object.fromEntries(overview.subjects.map((sub: any) => [sub.code, s.subjectAverages[sub.id] ?? ''])),
+                'Moyenne générale': s.generalAverage ?? '',
+              }))}
+              filename={`moyennes_${selectedClass?.name ?? 'classe'}_${selectedTerm?.name ?? ''}.xlsx`}
+              sheetName="Moyennes"
+            />
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { reviewApplication } from '@/actions/enrollment'
 import { formatDate } from '@/lib/utils'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 import Link from 'next/link'
 import type { PaginatedResult } from '@/types'
 
@@ -205,6 +206,21 @@ export function EnrollmentsClient({
           className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition">
           Filtrer
         </button>
+        <ExportExcelButton
+          rows={result.data.map(a => ({
+            'Prénom': a.first_name,
+            'Nom': a.last_name,
+            'Niveau demandé': a.desired_level ?? '',
+            'Parent': a.parent_name,
+            'Téléphone parent': a.parent_phone,
+            'Email parent': a.parent_email ?? '',
+            'Statut': STATUS_CFG[a.status]?.label ?? a.status,
+            'Soumis le': formatDate(a.submitted_at),
+          }))}
+          filename="inscriptions.xlsx"
+          sheetName="Inscriptions"
+          label="Exporter la page"
+        />
       </form>
 
       {/* Table */}

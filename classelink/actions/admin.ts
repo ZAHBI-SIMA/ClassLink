@@ -1591,7 +1591,7 @@ export async function removeTeacherAssignment(tscId: string, teacherId: string):
   }
 }
 
-// ─── Import CSV Élèves ────────────────────────────────────────────────────────
+// ─── Import Excel Élèves ────────────────────────────────────────────────────────
 
 interface ImportRow {
   prenom: string
@@ -1608,21 +1608,25 @@ interface ImportResult {
   passwords: { email: string; tempPassword: string }[]
 }
 
-export async function importStudentsFromCSV(
-  _prev: ActionResult | null,
-  formData: FormData
-): Promise<ActionResult<ImportResult>> {
+const MAX_IMPORT_ROWS = 1000
+
+/**
+ * Import en masse d'élèves. `rows` provient d'un fichier Excel (.xlsx/.xls)
+ * ou CSV parsé côté client (voir lib/excel/parse.ts) — chaque ligne est déjà
+ * un objet { en-tête_normalisé: valeur }.
+ */
+export async function importStudents(rows: Record<string, string>[]): Promise<ActionResult<ImportResult>> {
   try {
     const session = await requireRole('ADMIN')
-    const db = getTenantPrisma(session.user.schemaName) as any
-    const csv = formData.get('csv') as string
-    if (!csv) return { success: false, error: 'Fichier CSV vide.' }
 
-    // Parse CSV
-    const lines = csv.split('\n').map(l => l.trim()).filter(Boolean)
-    if (lines.length < 2) return { success: false, error: 'Le fichier CSV doit contenir un en-tête et au moins une ligne de données.' }
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { success: false, error: 'Fichier vide ou illisible.' }
+    }
+    if (rows.length > MAX_IMPORT_ROWS) {
+      return { success: false, error: `Trop de lignes (${rows.length}) — maximum ${MAX_IMPORT_ROWS} élèves par import.` }
+    }
 
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''))
+    const headers = Object.keys(rows[0])
     const requiredCols = ['prenom', 'nom', 'email']
     for (const col of requiredCols) {
       if (!headers.includes(col)) {
@@ -1630,22 +1634,16 @@ export async function importStudentsFromCSV(
       }
     }
 
-    const getCol = (row: string[], colName: string): string => {
-      const idx = headers.indexOf(colName)
-      return idx >= 0 ? (row[idx] ?? '').trim().replace(/^["']|["']$/g, '') : ''
-    }
-
     const result: ImportResult = { created: 0, errors: [], passwords: [] }
-    const tenantDb = (await requireRole('ADMIN')).user.schemaName
-    const dbClient = getTenantPrisma(tenantDb) as any
+    const dbClient = getTenantPrisma(session.user.schemaName) as any
 
-    for (let i = 1; i < lines.length; i++) {
-      const row = lines[i].split(',')
-      const rowNum = i + 1
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const rowNum = i + 2 // +1 pour l'en-tête, +1 pour l'index 0-based
 
-      const firstName = getCol(row, 'prenom')
-      const lastName  = getCol(row, 'nom')
-      const email     = getCol(row, 'email')
+      const firstName = (row.prenom ?? '').trim()
+      const lastName  = (row.nom ?? '').trim()
+      const email     = (row.email ?? '').trim()
 
       if (!firstName || !lastName || !email) {
         result.errors.push({ row: rowNum, reason: 'Prénom, nom ou email manquant.' })
@@ -1657,9 +1655,9 @@ export async function importStudentsFromCSV(
         continue
       }
 
-      const dateOfBirth = getCol(row, 'date_naissance') || null
-      const gender      = getCol(row, 'genre') || null
-      const classId     = getCol(row, 'classe_id') || null
+      const dateOfBirth = (row.date_naissance ?? '').trim() || null
+      const gender      = (row.genre ?? '').trim() || null
+      const classId     = (row.classe_id ?? '').trim() || null
       const studentNumber = `EL-${Date.now().toString().slice(-6)}-${i}`
       const tempPassword  = nanoid(10)
       const passwordHash  = await hash(tempPassword, 10)

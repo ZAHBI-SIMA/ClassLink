@@ -1,6 +1,7 @@
 import { getStudents, getClasses } from '@/actions/admin'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 import { getInitials } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -24,6 +25,18 @@ export default async function StudentsPage({ searchParams }: Props) {
         description={`${students.length} élève${students.length !== 1 ? 's' : ''} trouvé${students.length !== 1 ? 's' : ''}`}
         action={
           <div className="flex items-center gap-2">
+            <ExportExcelButton
+              rows={students.map((s: any) => ({
+                'N° élève': s.student_id,
+                'Prénom': s.first_name,
+                'Nom': s.last_name,
+                'Email': s.email,
+                'Classe': s.class_name ?? '',
+                'Statut': s.is_active ? 'Actif' : 'Inactif',
+              }))}
+              filename="eleves.xlsx"
+              sheetName="Élèves"
+            />
             <Link
               href="/admin/students/import"
               className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm
@@ -33,7 +46,7 @@ export default async function StudentsPage({ searchParams }: Props) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-              Import CSV
+              Import Excel
             </Link>
             <Link
               href="/admin/students/new"

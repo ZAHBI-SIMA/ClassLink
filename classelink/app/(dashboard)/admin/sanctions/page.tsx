@@ -1,5 +1,6 @@
 import { getSanctions, getStudentsForSanction, deleteSanction } from '@/actions/admin'
 import { PageHeader } from '@/components/ui/page-header'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 import { CreateSanctionForm } from './create-form'
 
 interface Props {
@@ -34,6 +35,22 @@ export default async function SanctionsPage({ searchParams }: Props) {
       <PageHeader
         title="Sanctions & Punitions"
         description="Gérer les sanctions des élèves"
+        action={
+          <ExportExcelButton
+            rows={sanctions.map((s: any) => ({
+              'Nom': s.last_name,
+              'Prénom': s.first_name,
+              'Classe': s.class_name ?? '',
+              'Type': TYPE_LABELS[s.type] ?? s.type,
+              'Motif': s.reason,
+              'Date': new Date(s.date).toLocaleDateString('fr-FR'),
+              'Durée (jours)': s.duration ?? '',
+              'Émis par': `${s.issued_first} ${s.issued_last}`,
+            }))}
+            filename="sanctions.xlsx"
+            sheetName="Sanctions"
+          />
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

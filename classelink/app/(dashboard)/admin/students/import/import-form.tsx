@@ -1,7 +1,8 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
-import { importStudentsFromCSV } from '@/actions/admin'
+import { importStudents } from '@/actions/admin'
+import { parseExcelFile } from '@/lib/excel/parse'
 
 interface ImportResult {
   created: number
@@ -22,26 +23,26 @@ export function ImportStudentsForm() {
 
     const file = fileRef.current?.files?.[0]
     if (!file) {
-      setParseError('Veuillez sélectionner un fichier CSV.')
+      setParseError('Veuillez sélectionner un fichier Excel ou CSV.')
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const content = ev.target?.result as string
-      const formData = new FormData()
-      formData.append('csv', content)
+    startTransition(async () => {
+      let rows: Record<string, string>[]
+      try {
+        rows = await parseExcelFile(file)
+      } catch {
+        setParseError('Impossible de lire ce fichier. Vérifiez qu\'il s\'agit bien d\'un fichier Excel (.xlsx) ou CSV valide.')
+        return
+      }
 
-      startTransition(async () => {
-        const res = await importStudentsFromCSV(null, formData)
-        if (res.success) {
-          setResult(res.data as ImportResult)
-        } else {
-          setParseError(res.error)
-        }
-      })
-    }
-    reader.readAsText(file, 'UTF-8')
+      const res = await importStudents(rows)
+      if (res.success) {
+        setResult(res.data as ImportResult)
+      } else {
+        setParseError(res.error)
+      }
+    })
   }
 
   return (
@@ -57,12 +58,12 @@ export function ImportStudentsForm() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
-            <p className="text-sm text-gray-600 mb-1">Cliquez pour choisir un fichier CSV</p>
+            <p className="text-sm text-gray-600 mb-1">Cliquez pour choisir un fichier Excel (.xlsx) ou CSV</p>
             <p className="text-xs text-gray-400">ou glissez-déposez ici</p>
             <input
               ref={fileRef}
               type="file"
-              accept=".csv,text/csv"
+              accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
               className="hidden"
               onChange={(e) => {
                 const name = e.target.files?.[0]?.name

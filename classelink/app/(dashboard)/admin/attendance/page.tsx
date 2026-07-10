@@ -1,4 +1,5 @@
 import { getClasses, getTerms, getAttendanceReport } from '@/actions/admin'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 import Link from 'next/link'
 
 interface Props {
@@ -99,6 +100,20 @@ export default async function AdminAttendancePage({ searchParams }: Props) {
                   </span>
                 ))}
               </div>
+              <ExportExcelButton
+                rows={report.map((r: any) => ({
+                  'N° élève': r.student_number,
+                  'Nom': r.last_name,
+                  'Prénom': r.first_name,
+                  'Présent': r.present_count,
+                  'Absent': r.absent_count,
+                  'Retard': r.late_count,
+                  'Excusé': r.excused_count,
+                  'Non justifié': r.unjustified_count,
+                }))}
+                filename={`presences_${selectedClass?.name ?? 'classe'}_${selectedTerm?.name ?? ''}.xlsx`}
+                sheetName="Présences"
+              />
             </div>
           )}
 

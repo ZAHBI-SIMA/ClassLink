@@ -1,6 +1,7 @@
 import { getFeeTypes, createFeeType } from '@/actions/admin'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 
 export const metadata = { title: 'Frais scolaires' }
 
@@ -18,6 +19,19 @@ export default async function FeesPage() {
       <PageHeader
         title="Frais scolaires"
         description="Configurez les types de frais et suivez la collecte."
+        action={
+          <ExportExcelButton
+            rows={feeTypes.map((f: any) => ({
+              'Intitulé': f.name,
+              'Montant (FCFA)': f.amount,
+              'Optionnel': f.is_optional ? 'Oui' : 'Non',
+              'Paiements': f.payments_count,
+              'Total collecté (FCFA)': f.total_collected ?? 0,
+            }))}
+            filename="frais-scolaires.xlsx"
+            sheetName="Frais"
+          />
+        }
       />
 
       {/* Résumé financier */}

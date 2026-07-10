@@ -1,6 +1,7 @@
 import { getTeachers } from '@/actions/admin'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 import { getInitials } from '@/lib/utils'
 import { TeacherCreateForm } from './create-form'
 import Link from 'next/link'
@@ -15,6 +16,20 @@ export default async function TeachersPage() {
       <PageHeader
         title="Enseignants"
         description={`${teachers.length} enseignant${teachers.length !== 1 ? 's' : ''} dans l'établissement`}
+        action={
+          <ExportExcelButton
+            rows={teachers.map((t: any) => ({
+              'Prénom': t.first_name,
+              'Nom': t.last_name,
+              'Email': t.email,
+              'Spécialité': t.specialty ?? '',
+              'Classes': t.class_count,
+              'Statut': t.is_active ? 'Actif' : 'Inactif',
+            }))}
+            filename="enseignants.xlsx"
+            sheetName="Enseignants"
+          />
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

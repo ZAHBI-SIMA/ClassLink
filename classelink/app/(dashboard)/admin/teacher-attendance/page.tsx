@@ -1,6 +1,11 @@
 import { getTeacherAttendance } from '@/actions/admin'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 import { DateFilter } from './date-filter'
 import { TeacherAttendanceSheet } from './teacher-attendance-sheet'
+
+const STATUS_LABELS: Record<string, string> = {
+  PRESENT: 'Présent', ABSENT: 'Absent', LATE: 'Retard', EXCUSED: 'Excusé',
+}
 
 interface Props {
   searchParams: Promise<{ date?: string }>
@@ -38,6 +43,20 @@ export default async function TeacherAttendancePage({ searchParams }: Props) {
             })}
           </h2>
           <p className="text-xs text-gray-500">{teachers.length} enseignant{teachers.length > 1 ? 's' : ''}</p>
+        </div>
+        <div className="ml-auto">
+          <ExportExcelButton
+            rows={teachers.map((t: any) => ({
+              'Prénom': t.first_name,
+              'Nom': t.last_name,
+              'Spécialité': t.specialty ?? '',
+              'Statut': STATUS_LABELS[t.status] ?? t.status,
+              'Justifié': t.justified ? 'Oui' : 'Non',
+              'Justification': t.justification ?? '',
+            }))}
+            filename={`presence-enseignants_${selectedDate}.xlsx`}
+            sheetName="Présence enseignants"
+          />
         </div>
       </div>
 

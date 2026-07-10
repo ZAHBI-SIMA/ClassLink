@@ -2,6 +2,7 @@ import { getParents } from '@/actions/admin'
 import { ParentCreateForm } from './create-form'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 import { getInitials } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -15,6 +16,19 @@ export default async function ParentsPage() {
       <PageHeader
         title="Parents & Tuteurs"
         description={`${parents.length} parent${parents.length !== 1 ? 's' : ''} enregistré${parents.length !== 1 ? 's' : ''}`}
+        action={
+          <ExportExcelButton
+            rows={parents.map((p: any) => ({
+              'Prénom': p.first_name,
+              'Nom': p.last_name,
+              'Email': p.email,
+              'Téléphone': p.phone ?? '',
+              "Nombre d'enfants": p.children_count,
+            }))}
+            filename="parents.xlsx"
+            sheetName="Parents"
+          />
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

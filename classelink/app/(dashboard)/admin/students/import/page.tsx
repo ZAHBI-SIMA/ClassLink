@@ -8,8 +8,8 @@ export default function ImportStudentsPage() {
   return (
     <div>
       <PageHeader
-        title="Import CSV — Élèves"
-        description="Importez plusieurs élèves en une seule opération depuis un fichier CSV."
+        title="Import Excel — Élèves"
+        description="Importez en masse plusieurs élèves en une seule opération depuis un fichier Excel (.xlsx) ou CSV."
         action={
           <Link href="/admin/students"
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition">
@@ -20,23 +20,24 @@ export default function ImportStudentsPage() {
 
       {/* Instructions */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
-        <h3 className="text-sm font-semibold text-blue-800 mb-2">Format attendu du fichier CSV</h3>
+        <h3 className="text-sm font-semibold text-blue-800 mb-2">Format attendu du fichier</h3>
         <p className="text-sm text-blue-700 mb-3">
-          Le fichier doit être en UTF-8 avec les colonnes suivantes (en-tête obligatoire) :
+          Fichier Excel (.xlsx) ou CSV avec les colonnes suivantes en première ligne (en-tête obligatoire) :
         </p>
         <div className="bg-white rounded-lg border border-blue-200 p-3 font-mono text-xs text-gray-700 overflow-x-auto">
           <div className="text-blue-600 font-semibold mb-1">
-            prenom,nom,email,date_naissance,genre,classe_id
+            prenom | nom | email | date_naissance | genre | classe_id
           </div>
-          <div>Awa,Diallo,awa.diallo@example.com,2008-03-15,F,cls_2a</div>
-          <div>Moussa,Konaté,moussa.konate@example.com,2008-07-22,M,cls_2a</div>
-          <div>Aïcha,Traoré,aicha.traore@example.com,2007-11-05,F,</div>
+          <div>Awa | Diallo | awa.diallo@example.com | 2008-03-15 | F | cls_2a</div>
+          <div>Moussa | Konaté | moussa.konate@example.com | 2008-07-22 | M | cls_2a</div>
+          <div>Aïcha | Traoré | aicha.traore@example.com | 2007-11-05 | F | </div>
         </div>
         <ul className="mt-3 text-xs text-blue-700 space-y-1 list-disc list-inside">
           <li><strong>prenom</strong>, <strong>nom</strong>, <strong>email</strong> sont obligatoires</li>
           <li><strong>date_naissance</strong> au format AAAA-MM-JJ</li>
           <li><strong>genre</strong> : M ou F</li>
           <li><strong>classe_id</strong> : l'ID de la classe (optionnel)</li>
+          <li>Maximum 1000 élèves par import</li>
           <li>Un mot de passe temporaire sera généré pour chaque élève</li>
         </ul>
 
@@ -48,7 +49,7 @@ export default function ImportStudentsPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          Télécharger le modèle CSV
+          Télécharger le modèle Excel
         </a>
       </div>
 

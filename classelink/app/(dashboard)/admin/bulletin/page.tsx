@@ -1,5 +1,6 @@
 import { getTermsAndClasses, getBulletinList } from '@/actions/bulletin'
 import { PageHeader } from '@/components/ui/page-header'
+import { ExportExcelButton } from '@/components/ui/export-excel-button'
 import Link from 'next/link'
 
 interface Props {
@@ -138,6 +139,18 @@ export default async function BulletinListPage({ searchParams }: Props) {
               </p>
               <p className="text-xs text-gray-400 mt-0.5">{bulletins.length} élève(s)</p>
             </div>
+            <ExportExcelButton
+              rows={bulletins.map((b: any) => ({
+                'Rang': Number(b.rank),
+                'Nom': b.last_name,
+                'Prénom': b.first_name,
+                'Classe': b.class_name,
+                'Moyenne': b.average !== null ? parseFloat(b.average) : '',
+                'Décision conseil': DECISION_CFG[b.decision]?.label ?? b.decision ?? '',
+              }))}
+              filename={`bulletins_${selectedClass?.name ?? classId}_${selectedTerm?.name ?? termId}.xlsx`}
+              sheetName="Bulletins"
+            />
           </div>
 
           <table className="w-full text-sm">
