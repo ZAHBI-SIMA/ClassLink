@@ -204,6 +204,21 @@ CREATE TABLE IF NOT EXISTS attendances (
 CREATE INDEX IF NOT EXISTS idx_attendance_student ON attendances(student_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendances(date);
 
+-- ─── Présence des enseignants ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS teacher_attendances (
+  id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  teacher_id    TEXT NOT NULL REFERENCES teachers(id),
+  date          DATE NOT NULL,
+  status        TEXT NOT NULL CHECK (status IN ('PRESENT','ABSENT','LATE','EXCUSED')),
+  justified     BOOLEAN DEFAULT FALSE,
+  justification TEXT,
+  recorded_by   TEXT NOT NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(teacher_id, date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_teacher_attendance_date ON teacher_attendances(date);
+
 -- ─── Cahier de texte ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS lessons (
   id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -585,6 +600,10 @@ CREATE TABLE IF NOT EXISTS trip_authorizations (
 );
 CREATE INDEX IF NOT EXISTS idx_auth_trip    ON trip_authorizations(trip_id);
 CREATE INDEX IF NOT EXISTS idx_auth_student ON trip_authorizations(student_id);
+-- Signature numérique du parent (image PNG encodée en base64) + horodatage de mise à jour
+-- (colonne déjà utilisée par actions/trips.ts::authorizeTrip mais jamais déclarée — corrige un bug latent).
+ALTER TABLE trip_authorizations ADD COLUMN IF NOT EXISTS signature_data TEXT;
+ALTER TABLE trip_authorizations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 -- ─── Alertes automatiques ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS alert_rules (
@@ -775,4 +794,64 @@ CREATE TABLE IF NOT EXISTS agenda_events (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_agenda_date  ON agenda_events(start_date);
+
+-- ─── Examens (mode distinct de l'agenda générique) ─────────────────────────────
+-- Un examen planifie une composition sur une matière précise (barème, coefficient,
+-- salle), lié à un événement d'agenda pour rester visible dans le calendrier
+-- partagé. Les notes saisies pour cet examen référencent exam_id (voir plus bas).
+CREATE TABLE IF NOT EXISTS exams (
+  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  agenda_event_id TEXT REFERENCES agenda_events(id) ON DELETE SET NULL,
+  class_id        TEXT NOT NULL REFERENCES classes(id),
+  subject_id      TEXT NOT NULL REFERENCES subjects(id),
+  term_id         TEXT NOT NULL REFERENCES terms(id),
+  title           TEXT NOT NULL,
+  exam_date       DATE NOT NULL,
+  start_time      TEXT,
+  end_time        TEXT,
+  room            TEXT,
+  max_value       NUMERIC(5,2) NOT NULL DEFAULT 20,
+  coefficient     NUMERIC(4,2) NOT NULL DEFAULT 1,
+  status          TEXT NOT NULL DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED','COMPLETED','CANCELLED')),
+  created_by      TEXT NOT NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_exams_class_subject_term ON exams(class_id, subject_id, term_id);
+CREATE INDEX IF NOT EXISTS idx_exams_date ON exams(exam_date);
+
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS exam_id TEXT REFERENCES exams(id) ON DELETE SET NULL;
+
+-- ─── Journal des échanges avec l'assistant IA élève ────────────────────────────
+-- Conservé intégralement (question + réponse) pour permettre une supervision
+-- par l'administration — nécessaire pour un assistant IA destiné à des mineurs.
+CREATE TABLE IF NOT EXISTS ai_chat_logs (
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  student_id TEXT NOT NULL REFERENCES students(id),
+  question   TEXT NOT NULL,
+  answer     TEXT NOT NULL,
+  flagged    BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_logs_student ON ai_chat_logs(student_id);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_logs_flagged ON ai_chat_logs(flagged) WHERE flagged = TRUE;
+
+-- ─── Abonnement parent MyClassLink (2000 FCFA/an/enfant) ───────────────────────
+-- Distinct des frais de scolarité (table `payments`) : ceci finance l'accès à la
+-- plateforme (MyClassLink), pas l'établissement — l'argent va sur le compte
+-- global MyClassLink, jamais sur le compte de paiement de l'école.
+CREATE TABLE IF NOT EXISTS parent_subscriptions (
+  id               TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  parent_id        TEXT NOT NULL REFERENCES parents(id),
+  academic_year_id TEXT NOT NULL REFERENCES academic_years(id),
+  children_count   INT NOT NULL,
+  amount           NUMERIC(10,2) NOT NULL,
+  status           TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SUCCESS','FAILED')),
+  provider         TEXT,
+  provider_ref     TEXT,
+  paid_at          TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(parent_id, academic_year_id)
+);
+CREATE INDEX IF NOT EXISTS idx_parent_sub_parent ON parent_subscriptions(parent_id);
 CREATE INDEX IF NOT EXISTS idx_agenda_class ON agenda_events(class_id);
