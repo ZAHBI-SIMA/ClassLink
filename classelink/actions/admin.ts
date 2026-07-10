@@ -779,6 +779,7 @@ export async function getClassGradesOverview(classId: string, termId: string) {
     WHERE c.id = ${classId}
     ORDER BY s.name
   `
+  const subjects = subjectRows.map(s => ({ ...s, coefficient: Number(s.coefficient) }))
 
   // All grades for this class + term
   const grades: any[] = await db.$queryRaw`
@@ -867,6 +868,81 @@ export async function getAttendanceReport(classId: string, termId: string) {
     GROUP BY s.id, s.student_id, u.first_name, u.last_name
     ORDER BY u.last_name, u.first_name
   ` as Promise<any[]>
+}
+
+// ─── Présence des enseignants ─────────────────────────────────────────────────
+
+export async function getTeacherAttendance(date: string) {
+  const { db } = await getDb()
+  return db.$queryRaw`
+    SELECT
+      t.id AS teacher_id, t.specialty,
+      u.first_name, u.last_name,
+      ta.id AS attendance_id,
+      COALESCE(ta.status, 'PRESENT') AS status,
+      COALESCE(ta.justified, FALSE)  AS justified,
+      ta.justification
+    FROM teachers t
+    JOIN users u ON u.id = t.user_id
+    LEFT JOIN teacher_attendances ta
+      ON ta.teacher_id = t.id AND ta.date = ${toDate(date)}
+    WHERE u.is_active = TRUE
+    ORDER BY u.last_name, u.first_name
+  ` as Promise<any[]>
+}
+
+export async function saveTeacherAttendance(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const { db, session } = await getDb()
+
+  const date = formData.get('date') as string
+  if (!date) return { success: false, error: 'Date requise.' }
+
+  const teacherIds = formData.getAll('teacher_id') as string[]
+  try {
+    for (const tid of teacherIds) {
+      const status       = (formData.get(`status_${tid}`)       as string) || 'PRESENT'
+      const justified     = formData.get(`justified_${tid}`)     === '1'
+      const justification = (formData.get(`justification_${tid}`) as string) || null
+
+      await db.$executeRaw`
+        INSERT INTO teacher_attendances
+          (teacher_id, date, status, justified, justification, recorded_by)
+        VALUES
+          (${tid}, ${toDate(date)}, ${status}, ${justified}, ${justification}, ${session.user.id})
+        ON CONFLICT (teacher_id, date) DO UPDATE
+          SET status = EXCLUDED.status, justified = EXCLUDED.justified,
+              justification = EXCLUDED.justification, recorded_by = EXCLUDED.recorded_by
+      `
+    }
+    revalidatePath('/admin/teacher-attendance')
+    revalidatePath('/admin/analytics')
+    return { success: true, data: undefined }
+  } catch (e: any) {
+    return { success: false, error: dbError(e) }
+  }
+}
+
+/** Taux de présence des enseignants pour une date donnée (par défaut aujourd'hui) — utilisé par le tableau de bord. */
+export async function getTodayTeacherAttendanceRate() {
+  const { db } = await getDb()
+  const [row] = await db.$queryRaw`
+    SELECT
+      COUNT(DISTINCT t.id)::int AS total_teachers,
+      COUNT(ta.id) FILTER (WHERE ta.status = 'PRESENT')::int AS present_count,
+      COUNT(ta.id)::int AS marked_count
+    FROM teachers t
+    JOIN users u ON u.id = t.user_id AND u.is_active = TRUE
+    LEFT JOIN teacher_attendances ta ON ta.teacher_id = t.id AND ta.date = CURRENT_DATE
+  ` as any[]
+  return {
+    totalTeachers: row?.total_teachers ?? 0,
+    presentCount:  row?.present_count  ?? 0,
+    markedCount:   row?.marked_count   ?? 0,
+    rate: row?.marked_count > 0 ? Math.round((row.present_count / row.marked_count) * 100) : null,
+  }
 }
 
 // ─── Paiements ────────────────────────────────────────────────────────────────
