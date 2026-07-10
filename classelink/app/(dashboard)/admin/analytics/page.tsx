@@ -1,4 +1,5 @@
 import { getAdminAnalytics } from '@/actions/analytics'
+import { getTodayTeacherAttendanceRate } from '@/actions/admin'
 import { PageHeader } from '@/components/ui/page-header'
 import { BarChart } from '@/components/charts/bar-chart'
 import { ProgressRing } from '@/components/charts/progress-ring'
@@ -25,7 +26,10 @@ function StatCard({ title, value, subtitle, color = 'blue' }: {
 }
 
 export default async function AnalyticsPage() {
-  const data = await getAdminAnalytics()
+  const [data, teacherAttendance] = await Promise.all([
+    getAdminAnalytics(),
+    getTodayTeacherAttendanceRate(),
+  ])
 
   const maxClassAvg = Math.max(...data.averagesByClass.map((c: any) => parseFloat(c.average) || 0), 1)
   const maxSubjAvg  = Math.max(...data.averagesBySubject.map((s: any) => parseFloat(s.average) || 0), 1)
@@ -67,6 +71,35 @@ export default async function AnalyticsPage() {
         <StatCard title="Impayés"             value={data.paymentStats?.pending_count ?? 0}
                   subtitle={formatCurrency(data.paymentStats?.pending ?? 0)}
                   color={data.paymentStats?.pending_count > 0 ? 'red' : 'green'} />
+      </div>
+
+      {/* ── Présence enseignants du jour ─────────────────────── */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Présence enseignants — aujourd&apos;hui</h3>
+          {teacherAttendance.markedCount > 0 ? (
+            <p className="text-xs text-gray-500 mt-1">
+              {teacherAttendance.presentCount} présent(s) sur {teacherAttendance.markedCount} pointé(s)
+              {teacherAttendance.markedCount < teacherAttendance.totalTeachers &&
+                ` · ${teacherAttendance.totalTeachers - teacherAttendance.markedCount} non pointé(s)`}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 mt-1">Aucun pointage effectué aujourd&apos;hui</p>
+          )}
+        </div>
+        <div className="flex items-center gap-4">
+          {teacherAttendance.rate !== null && (
+            <div className="flex items-center gap-2">
+              <ProgressRing value={teacherAttendance.rate} size={44} stroke={5}
+                color={teacherAttendance.rate >= 90 ? '#10b981' : teacherAttendance.rate >= 75 ? '#f59e0b' : '#ef4444'} />
+              <span className="text-lg font-bold text-gray-900">{teacherAttendance.rate}%</span>
+            </div>
+          )}
+          <Link href="/admin/teacher-attendance"
+            className="text-xs font-medium px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
+            Faire le pointage →
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
