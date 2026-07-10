@@ -30,6 +30,7 @@ export const MODULES: ModuleDef[] = [
   // Vie scolaire
   { key: 'students',     label: 'Élèves',            prefix: '/admin/students',     category: 'Vie scolaire' },
   { key: 'attendance',   label: 'Présences',         prefix: '/admin/attendance',   category: 'Vie scolaire' },
+  { key: 'teacher-attendance', label: 'Présence enseignants', prefix: '/admin/teacher-attendance', category: 'Vie scolaire' },
   { key: 'sanctions',    label: 'Sanctions',         prefix: '/admin/sanctions',    category: 'Vie scolaire' },
   { key: 'enrollments',  label: 'Inscriptions',      prefix: '/admin/enrollments',  category: 'Vie scolaire' },
   { key: 'convocations', label: 'Convocations',      prefix: '/admin/convocations', category: 'Vie scolaire' },
@@ -54,6 +55,8 @@ export const MODULES: ModuleDef[] = [
   { key: 'analytics',    label: 'Analytics',          prefix: '/admin/analytics',    category: 'Finances' },
 
   // Communication
+  { key: 'assistant',     label: 'Assistant IA', prefix: '/admin/assistant',  category: 'Communication' },
+  { key: 'ai-supervision', label: 'Supervision IA', prefix: '/admin/ai-supervision', category: 'Communication' },
   { key: 'announcements', label: 'Annonces',  prefix: '/admin/announcements', category: 'Communication' },
   { key: 'messages',      label: 'Messages',  prefix: '/admin/messages',      category: 'Communication' },
   { key: 'alerts',        label: 'Alertes',   prefix: '/admin/alerts',        category: 'Communication' },
@@ -106,7 +109,7 @@ const ALL = MODULES.map(m => m.key)
 export const JOB_PRESETS: JobPreset[] = [
   // ── Primaire ──
   { title: "Directeur / Directrice d'école",  level: 'Primaire', modules: ALL },
-  { title: 'Directeur adjoint',               level: 'Primaire', modules: ['students','attendance','grades','schedule','sanctions','enrollments','announcements','messages'] },
+  { title: 'Directeur adjoint',               level: 'Primaire', modules: ['students','attendance','teacher-attendance','grades','schedule','sanctions','enrollments','announcements','messages'] },
   { title: 'Secrétaire',                      level: 'Primaire', modules: ['students','enrollments','announcements','messages'] },
   { title: 'Comptable / Régisseur',           level: 'Primaire', modules: ['payments','fees','finance','scholarships','cafeteria'] },
   { title: 'Surveillant(e)',                  level: 'Primaire', modules: ['attendance','sanctions'] },
@@ -115,8 +118,8 @@ export const JOB_PRESETS: JobPreset[] = [
 
   // ── Secondaire ──
   { title: 'Proviseur / Principal',           level: 'Secondaire', modules: ALL },
-  { title: 'Proviseur adjoint / Censeur',     level: 'Secondaire', modules: ['students','attendance','grades','schedule','sanctions','councils','convocations','enrollments'] },
-  { title: 'Surveillant général (SG)',        level: 'Secondaire', modules: ['students','attendance','sanctions','convocations'] },
+  { title: 'Proviseur adjoint / Censeur',     level: 'Secondaire', modules: ['students','attendance','teacher-attendance','grades','schedule','sanctions','councils','convocations','enrollments'] },
+  { title: 'Surveillant général (SG)',        level: 'Secondaire', modules: ['students','attendance','teacher-attendance','sanctions','convocations'] },
   { title: 'Surveillant / Éducateur',         level: 'Secondaire', modules: ['attendance','sanctions'] },
   { title: 'Intendant / Économe',             level: 'Secondaire', modules: ['payments','fees','finance','scholarships','cafeteria','resources'] },
   { title: 'Comptable matières',              level: 'Secondaire', modules: ['resources','library'] },
