@@ -1,6 +1,6 @@
 import { withMobileAuth } from '@/lib/auth/mobile-guard'
 import { getTenantPrisma } from '@/lib/db/tenant'
-import { initiateSchoolPayment } from '@/lib/payments/provider'
+import { initiateSchoolPayment, PaymentNotConfiguredError } from '@/lib/payments/provider'
 import { NextResponse } from 'next/server'
 
 export const POST = withMobileAuth(['STUDENT', 'PARENT'], async (req, ctx) => {
@@ -58,26 +58,33 @@ export const POST = withMobileAuth(['STUDENT', 'PARENT'], async (req, ctx) => {
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
-  const init = await initiateSchoolPayment(ctx.schemaName, {
-    amount:        Number(payment.amount),
-    description:   payment.fee_name,
-    customerId:    payment.student_id,
-    customerName:  payment.student_name,
-    customerEmail: payment.student_email ?? '',
-    returnUrl:     `${baseUrl}/paiement/mobile-retour`,
-    baseUrl,
-    metadata: {
-      paymentId,
-      schemaName: ctx.schemaName,
-      studentId:  payment.student_id,
-    },
-  })
+  try {
+    const init = await initiateSchoolPayment(ctx.schemaName, {
+      amount:        Number(payment.amount),
+      description:   payment.fee_name,
+      customerId:    payment.student_id,
+      customerName:  payment.student_name,
+      customerEmail: payment.student_email ?? '',
+      returnUrl:     `${baseUrl}/paiement/mobile-retour`,
+      baseUrl,
+      metadata: {
+        paymentId,
+        schemaName: ctx.schemaName,
+        studentId:  payment.student_id,
+      },
+    })
 
-  await db.$executeRaw`
-    UPDATE payments
-    SET provider = ${init.provider}, provider_ref = ${init.transactionId}
-    WHERE id = ${paymentId}
-  `
+    await db.$executeRaw`
+      UPDATE payments
+      SET provider = ${init.provider}, provider_ref = ${init.transactionId}
+      WHERE id = ${paymentId}
+    `
 
-  return NextResponse.json({ success: true, paymentUrl: init.paymentUrl })
+    return NextResponse.json({ success: true, paymentUrl: init.paymentUrl })
+  } catch (e: any) {
+    if (e instanceof PaymentNotConfiguredError) {
+      return NextResponse.json({ success: false, error: e.message }, { status: 409 })
+    }
+    return NextResponse.json({ success: false, error: e?.message ?? 'Erreur lors de l\'initiation du paiement.' }, { status: 500 })
+  }
 })

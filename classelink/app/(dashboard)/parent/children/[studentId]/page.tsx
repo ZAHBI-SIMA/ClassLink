@@ -1,4 +1,4 @@
-import { getChildDetails } from '@/actions/parent'
+import { getChildDetails, getPaymentAvailability } from '@/actions/parent'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -18,7 +18,10 @@ const STATUS: Record<string, { label: string; color: string }> = {
 
 export default async function ChildDetailPage({ params }: Props) {
   const { studentId } = await params
-  const data = await getChildDetails(studentId)
+  const [data, paymentAvailable] = await Promise.all([
+    getChildDetails(studentId),
+    getPaymentAvailability(),
+  ])
   if (!data) notFound()
 
   const { profile, terms, payments, attendance } = data
@@ -188,6 +191,7 @@ export default async function ChildDetailPage({ params }: Props) {
                         studentId={studentId}
                         amount={p.amount}
                         feeName={p.fee_name}
+                        paymentAvailable={paymentAvailable}
                       />
                     )}
                   </td>

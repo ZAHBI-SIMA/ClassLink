@@ -1,4 +1,4 @@
-import { getParentPayments } from '@/actions/parent'
+import { getParentPayments, getPaymentAvailability } from '@/actions/parent'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { PayOnlineButton } from '../children/[studentId]/pay-button'
 
@@ -16,7 +16,10 @@ function childName(p: any) {
 }
 
 export default async function ParentPaymentsPage() {
-  const payments = await getParentPayments()
+  const [payments, paymentAvailable] = await Promise.all([
+    getParentPayments(),
+    getPaymentAvailability(),
+  ])
 
   const pending = payments.filter((p: any) => p.status === 'PENDING')
   const paid    = payments.filter((p: any) => p.status === 'SUCCESS')
@@ -86,6 +89,7 @@ export default async function ParentPaymentsPage() {
                     studentId={p.student_id}
                     amount={Number(p.amount)}
                     feeName={p.fee_name}
+                    paymentAvailable={paymentAvailable}
                   />
                 </div>
               </li>

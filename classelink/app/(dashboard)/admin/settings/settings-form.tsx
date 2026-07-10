@@ -361,7 +361,7 @@ export function SettingsForm({ settings, subscription, schoolSlug }: Props) {
             <h3 className="text-sm font-semibold text-gray-900 mb-1">Moyen de paiement</h3>
             <p className="text-xs text-gray-400">
               Encaissez les frais de scolarité directement sur le compte de votre établissement.
-              Sans configuration, les paiements transitent par le compte MyClassLink.
+              Tant qu'aucun fournisseur n'est activé, le paiement en ligne reste indisponible pour les parents.
             </p>
           </div>
 
@@ -375,11 +375,20 @@ export function SettingsForm({ settings, subscription, schoolSlug }: Props) {
               className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-300 bg-white
                          focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Aucun (utiliser MyClassLink)</option>
+              <option value="">Aucun (paiement en ligne désactivé)</option>
               <option value="GENIUSPAY">GeniusPay</option>
               <option value="CINETPAY">CinetPay</option>
             </select>
           </div>
+
+          {!provider && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-xs text-amber-800">
+                Aucun fournisseur activé : les parents verront un bouton de paiement grisé et devront régler
+                les frais de scolarité par un autre moyen (espèces, virement...).
+              </p>
+            </div>
+          )}
 
           {provider && (
             <>

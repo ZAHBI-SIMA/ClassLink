@@ -6,13 +6,23 @@ import * as cinetpay from './cinetpay'
 /**
  * Orchestrateur de paiement « par école ».
  *
- * Chaque école peut configurer son propre PSP (GeniusPay ou CinetPay) dans ses
- * paramètres. Si `payment_enabled` est vrai et les clés présentes, les frais sont
- * collectés sur le compte de l'école ; sinon on retombe sur le compte global
- * MyClassLink (GeniusPay via variables d'environnement).
+ * Chaque école configure son propre PSP (GeniusPay ou CinetPay) dans ses
+ * paramètres. Tant qu'aucun PSP n'est activé, le paiement en ligne des frais
+ * de scolarité est indisponible pour les parents — l'argent des frais ne
+ * transite jamais par le compte global MyClassLink (distinct de l'abonnement
+ * plateforme, qui utilise volontairement ce compte global, voir
+ * lib/payments/geniuspay.ts::initiatePayment).
  */
 
 export type PaymentProvider = 'GENIUSPAY' | 'CINETPAY'
+
+/** Levée par `initiateSchoolPayment` quand l'école n'a configuré aucun PSP. */
+export class PaymentNotConfiguredError extends Error {
+  constructor() {
+    super("Le paiement en ligne n'est pas encore configuré par votre établissement.")
+    this.name = 'PaymentNotConfiguredError'
+  }
+}
 
 export interface SchoolPaymentData {
   amount:        number
@@ -69,8 +79,16 @@ export async function getSchoolPaymentConfig(schemaName: string): Promise<School
   }
 }
 
+/** Indique si l'école a activé un PSP — à vérifier avant d'afficher un bouton de paiement au parent. */
+export async function isSchoolPaymentConfigured(schemaName: string): Promise<boolean> {
+  return (await getSchoolPaymentConfig(schemaName)) !== null
+}
+
 /**
- * Initie un paiement de frais avec le PSP de l'école (ou le compte global en repli).
+ * Initie un paiement de frais avec le PSP configuré par l'école.
+ * Lève `PaymentNotConfiguredError` si l'école n'a configuré aucun PSP —
+ * les appelants doivent vérifier `isSchoolPaymentConfigured` en amont pour
+ * éviter d'exposer un bouton de paiement inutilisable.
  * Renvoie le `provider` réellement utilisé pour le stocker dans `payments.provider`.
  */
 export async function initiateSchoolPayment(
@@ -78,8 +96,9 @@ export async function initiateSchoolPayment(
   data: SchoolPaymentData,
 ): Promise<{ transactionId: string; paymentUrl: string; provider: PaymentProvider }> {
   const cfg = await getSchoolPaymentConfig(schemaName)
+  if (!cfg) throw new PaymentNotConfiguredError()
 
-  if (cfg?.provider === 'CINETPAY') {
+  if (cfg.provider === 'CINETPAY') {
     const res = await cinetpay.initiatePayment(
       { ...data, notifyUrl: notifyUrlFor(data.baseUrl, 'CINETPAY') },
       { apiKey: cfg.apiKey, siteId: cfg.siteId ?? '', secretKey: cfg.webhookSecret ?? undefined },
@@ -87,19 +106,10 @@ export async function initiateSchoolPayment(
     return { ...res, provider: 'CINETPAY' }
   }
 
-  if (cfg?.provider === 'GENIUSPAY') {
-    const res = await geniuspay.initiatePayment(
-      { ...data, notifyUrl: notifyUrlFor(data.baseUrl, 'GENIUSPAY') },
-      { apiKey: cfg.apiKey, apiSecret: cfg.apiSecret, webhookSecret: cfg.webhookSecret ?? undefined },
-    )
-    return { ...res, provider: 'GENIUSPAY' }
-  }
-
-  // Repli : compte GeniusPay global MyClassLink.
-  const res = await geniuspay.initiatePayment({
-    ...data,
-    notifyUrl: notifyUrlFor(data.baseUrl, 'GENIUSPAY'),
-  })
+  const res = await geniuspay.initiatePayment(
+    { ...data, notifyUrl: notifyUrlFor(data.baseUrl, 'GENIUSPAY') },
+    { apiKey: cfg.apiKey, apiSecret: cfg.apiSecret, webhookSecret: cfg.webhookSecret ?? undefined },
+  )
   return { ...res, provider: 'GENIUSPAY' }
 }
 

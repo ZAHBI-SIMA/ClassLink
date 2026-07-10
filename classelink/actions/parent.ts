@@ -5,7 +5,7 @@ import { withRetry } from '@/lib/db/retry'
 import { requireRole } from '@/lib/auth/rbac'
 import { revalidatePath } from 'next/cache'
 import type { ActionResult } from '@/types'
-import { initiateSchoolPayment } from '@/lib/payments/provider'
+import { initiateSchoolPayment, isSchoolPaymentConfigured } from '@/lib/payments/provider'
 import { initiatePayment as initiateGlobalPayment } from '@/lib/payments/geniuspay'
 import { generateStudentQrCode } from '@/lib/qrcode'
 import { PARENT_FEE_PER_CHILD } from '@/lib/parent-fee'
@@ -421,6 +421,12 @@ export async function getChildWeeklySummary(studentId: string): Promise<ActionRe
   } catch (e: any) {
     return { success: false, error: e?.message ?? 'Erreur' }
   }
+}
+
+/** L'école a-t-elle activé un fournisseur de paiement ? Sinon, le bouton de paiement reste grisé. */
+export async function getPaymentAvailability(): Promise<boolean> {
+  const { session } = await getParentDb()
+  return isSchoolPaymentConfigured(session.user.schemaName)
 }
 
 export async function initiateOnlinePayment(

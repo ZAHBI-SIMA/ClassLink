@@ -8,9 +8,11 @@ interface Props {
   studentId: string
   amount: number
   feeName: string
+  /** false si l'établissement n'a configuré aucun fournisseur de paiement — le bouton reste grisé. */
+  paymentAvailable: boolean
 }
 
-export function PayOnlineButton({ paymentId, studentId, amount, feeName }: Props) {
+export function PayOnlineButton({ paymentId, studentId, amount, feeName, paymentAvailable }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -24,6 +26,26 @@ export function PayOnlineButton({ paymentId, studentId, amount, feeName }: Props
         setError(('error' in res ? res.error : null) ?? 'Erreur lors du paiement.')
       }
     })
+  }
+
+  if (!paymentAvailable) {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <button
+          type="button"
+          disabled
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 text-gray-400
+                     text-xs font-semibold rounded-lg cursor-not-allowed"
+          title="Paiement en ligne non disponible — votre établissement n'a pas encore activé de fournisseur de paiement."
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+          </svg>
+          Paiement en ligne indisponible
+        </button>
+      </div>
+    )
   }
 
   return (
